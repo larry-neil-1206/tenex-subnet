@@ -1,0 +1,469 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import "../core/TenexiumStorage.sol";
+import "../core/TenexiumEvents.sol";
+import "../libraries/AlphaMath.sol";
+import "../libraries/RiskCalculator.sol";
+import "../libraries/TenexiumErrors.sol";
+import "./FeeManager.sol";
+
+/**
+ * @title PositionManager
+ * @notice Functions for position opening, closing, and collateral management
+ */
+abstract contract PositionManager is FeeManager {
+    using AlphaMath for uint256;
+    using RiskCalculator for RiskCalculator.PositionData;
+
+    // ==================== PARAMETER SETTERS ====================
+    function _setRiskParameters(
+        uint256 _maxLeverage,
+        uint256 _liquidationThreshold
+    ) internal {
+        maxLeverage = _maxLeverage;
+        liquidationThreshold = _liquidationThreshold;
+    }
+
+    // ==================== POSITION MANAGEMENT FUNCTIONS ====================
+
+    /**
+     * @notice Open a leveraged position (TAO-only deposits)
+     * @param alphaNetuid Alpha subnet ID
+     * @param leverage Desired leverage (must be <= maxLeverage)
+     * @param maxSlippage Maximum acceptable slippage (in basis points)
+     */
+    function _openPosition(
+        uint16 alphaNetuid,
+        uint256 leverage,
+        uint256 maxSlippage
+    )
+        internal
+    {
+        if (maxSlippage > 1000) revert TenexiumErrors.SlippageTooHigh();
+        if (msg.value < 1e17) revert TenexiumErrors.MinDeposit();
+        if (positions[msg.sender][alphaNetuid].isActive) revert TenexiumErrors.PositionExists();
+        
+        // Check tier-based leverage limit
+        uint256 userMaxLeverage = _getUserMaxLeverage(msg.sender);
+        if (!(leverage >= PRECISION && leverage <= userMaxLeverage)) revert TenexiumErrors.LeverageTooHigh(leverage);
+        
+        uint256 collateralAmount = msg.value;
+        uint256 borrowedAmount = collateralAmount.safeMul(leverage - PRECISION) / PRECISION;
+        
+        // Check sufficient liquidity before proceeding
+        if (!_checkSufficientLiquidity(borrowedAmount)) revert TenexiumErrors.InsufficientLiquidity();
+        
+        // Get total TAO to stake (collateral + borrowed)
+        uint256 totalTaoToStake = collateralAmount + borrowedAmount;
+        
+        // Use simulation to get expected alpha amount with accurate slippage
+        // simSwap expects TAO in RAO; convert wei→rao
+        uint256 expectedAlphaAmount = ALPHA_PRECOMPILE.simSwapTaoForAlpha(
+            alphaNetuid,
+            uint64(totalTaoToStake.weiToRao())
+        );
+        if (expectedAlphaAmount == 0) revert TenexiumErrors.SwapSimInvalid();
+        
+        // Calculate minimum acceptable alpha with slippage tolerance
+        uint256 minAcceptableAlpha = expectedAlphaAmount.safeMul(10000 - maxSlippage) / 10000;
+        
+        // Execute stake operation
+        bytes32 validatorHotkey = _getAlphaValidatorHotkey(alphaNetuid);
+        uint256 actualAlphaReceived = _stakeTaoForAlpha(validatorHotkey, totalTaoToStake, alphaNetuid);
+        
+        // Verify slippage tolerance
+        if (actualAlphaReceived < minAcceptableAlpha) revert TenexiumErrors.SlippageTooHigh();
+        
+        // Get current alpha price for entry tracking
+        // Price is returned in RAO/alpha; convert to wei/alpha for internal consistency
+        uint256 entryPrice = ALPHA_PRECOMPILE.getAlphaPrice(alphaNetuid).priceRaoToWei();
+        
+        // Calculate and distribute trading fee on notional (collateral + borrow)
+        {
+            uint256 tradingFeeAmount = _calculateTradingFee(
+                msg.sender,
+                totalTaoToStake
+            );
+            if (tradingFeeAmount > 0) {
+                _distributeTradingFees(tradingFeeAmount);
+                // Accumulate protocol's share of trading fees in protocolFees
+                uint256 protocolShare = tradingFeeAmount.safeMul(tradingFeeProtocolShare) / PRECISION;
+                if (protocolShare > 0) {
+                    protocolFees += protocolShare;
+                }
+            }
+        }
+
+        // Create position
+        Position storage position = positions[msg.sender][alphaNetuid];
+        position.collateral = collateralAmount;
+        position.borrowed = borrowedAmount;
+        position.alphaAmount = actualAlphaReceived;
+        position.leverage = leverage;
+        position.entryPrice = entryPrice;
+        position.lastUpdateBlock = block.number;
+        position.accruedFees = 0;
+        position.isActive = true;
+        position.validatorHotkey = validatorHotkey;
+        
+        // Update global state
+        totalCollateral += collateralAmount;
+        totalBorrowed += borrowedAmount;
+        userCollateral[msg.sender] += collateralAmount;
+        userTotalBorrowed[msg.sender] += borrowedAmount;
+        
+        AlphaPair storage pair = alphaPairs[alphaNetuid];
+        pair.totalCollateral += collateralAmount;
+        pair.totalBorrowed += borrowedAmount;
+        
+        // Update metrics
+        totalVolume += totalTaoToStake;
+        totalTrades += 1;
+        userTotalVolume[msg.sender] += totalTaoToStake;
+        
+        emit PositionOpened(
+            msg.sender,
+            alphaNetuid,
+            collateralAmount,
+            borrowedAmount,
+            actualAlphaReceived,
+            leverage,
+            entryPrice
+        );
+    }
+
+    /**
+     * @notice Close a position and return collateral (TAO-only withdrawals)
+     * @param alphaNetuid Alpha subnet ID
+     * @param amountToClose Amount of alpha to close (0 for full close)
+     * @param maxSlippage Maximum acceptable slippage (in basis points)
+     */
+    function _closePosition(
+        uint16 alphaNetuid,
+        uint256 amountToClose,
+        uint256 maxSlippage
+    )
+        internal
+    {
+        Position storage position = positions[msg.sender][alphaNetuid];
+        
+        // Calculate accrued borrowing fees
+        uint256 accruedFees = _calculatePositionFees(msg.sender, alphaNetuid);
+        position.accruedFees += accruedFees;
+        
+        uint256 alphaToClose = amountToClose == 0 ? position.alphaAmount : amountToClose;
+        if (alphaToClose > position.alphaAmount) revert TenexiumErrors.InvalidValue();
+        
+        // Use simulation to get expected TAO amount from unstaking alpha
+        // simSwap expects alpha in RAO units; convert alpha tokens -> RAO using PRECISION (1e9)
+        uint256 alphaToCloseRao = alphaToClose.safeMul(PRECISION);
+        // simSwap returns TAO in RAO; convert to wei for fee/return math
+        uint256 expectedTaoAmount = AlphaMath.raoToWei(
+            ALPHA_PRECOMPILE.simSwapAlphaForTao(alphaNetuid, uint64(alphaToCloseRao))
+        );
+        if (expectedTaoAmount == 0) revert TenexiumErrors.UnstakeSimInvalid();
+        
+        // Calculate minimum acceptable TAO with slippage tolerance  
+        uint256 minAcceptableTao = expectedTaoAmount.safeMul(10000 - maxSlippage) / 10000;
+        
+        // Calculate position components to repay
+        uint256 borrowedToRepay = position.borrowed.safeMul(alphaToClose) / position.alphaAmount;
+        uint256 collateralToReturn = position.collateral.safeMul(alphaToClose) / position.alphaAmount;
+        uint256 feesToPay = position.accruedFees.safeMul(alphaToClose) / position.alphaAmount;
+        
+        // Calculate trading fees using actual TAO value on close leg
+        uint256 tradingFeeAmount = _calculateTradingFee(msg.sender, expectedTaoAmount);
+        
+        // Execute unstake operation
+        bytes32 validatorHotkey = position.validatorHotkey;
+        uint256 actualTaoReceived = _unstakeAlphaForTao(validatorHotkey, alphaToClose, alphaNetuid);
+        
+        // Verify slippage tolerance
+        if (actualTaoReceived < minAcceptableTao) revert TenexiumErrors.UnstakeSlippage();
+        
+        // Calculate net return after all costs
+        uint256 totalCosts = borrowedToRepay + feesToPay + tradingFeeAmount;
+        if (actualTaoReceived < totalCosts) revert TenexiumErrors.InsufficientProceeds();
+        
+        uint256 netReturn = actualTaoReceived - totalCosts;
+        
+        // Update position (partial or full close)
+        if (alphaToClose == position.alphaAmount) {
+            // Full close
+            position.isActive = false;
+            position.alphaAmount = 0;
+            position.borrowed = 0;
+            position.collateral = 0;
+            position.accruedFees = 0;
+        } else {
+            // Partial close
+            position.alphaAmount -= alphaToClose;
+            position.borrowed -= borrowedToRepay;
+            position.collateral -= collateralToReturn;
+            position.accruedFees -= feesToPay;
+        }
+        
+        // Update global state
+        totalBorrowed -= borrowedToRepay;
+        totalCollateral -= collateralToReturn;
+        userTotalBorrowed[msg.sender] -= borrowedToRepay;
+        userCollateral[msg.sender] -= collateralToReturn;
+        
+        AlphaPair storage pair = alphaPairs[alphaNetuid];
+        pair.totalBorrowed -= borrowedToRepay;
+        pair.totalCollateral -= collateralToReturn;
+        
+        // Distribute fees
+        _distributeTradingFees(tradingFeeAmount);
+        _distributeBorrowingFees(feesToPay);
+
+        // Accumulate protocol shares in protocolFees
+        if (tradingFeeAmount > 0) {
+            uint256 protocolTradingShare = tradingFeeAmount.safeMul(tradingFeeProtocolShare) / PRECISION;
+            if (protocolTradingShare > 0) {
+                protocolFees += protocolTradingShare;
+            }
+        }
+        if (feesToPay > 0) {
+            uint256 protocolBorrowShare = feesToPay.safeMul(borrowingFeeProtocolShare) / PRECISION;
+            if (protocolBorrowShare > 0) {
+                protocolFees += protocolBorrowShare;
+            }
+        }
+        
+        // Return net proceeds to user
+        if (netReturn > 0) {
+            (bool success, ) = payable(msg.sender).call{value: netReturn}("");
+            if (!success) revert TenexiumErrors.TransferFailed();
+        }
+        
+        // Calculate realized PnL (profit and loss)
+        int256 pnl = int256(actualTaoReceived) - int256(borrowedToRepay + feesToPay) - int256(collateralToReturn);
+        
+        emit PositionClosed(
+            msg.sender,
+            alphaNetuid,
+            collateralToReturn,
+            borrowedToRepay,
+            alphaToClose,
+            pnl,
+            tradingFeeAmount
+        );
+    }
+
+    /**
+     * @notice Add collateral to an existing position (TAO only)
+     * @param alphaNetuid Alpha subnet ID
+     */
+    function _addCollateral(uint16 alphaNetuid) 
+        internal
+    {
+        if (msg.value == 0) revert TenexiumErrors.AmountZero();
+        
+        Position storage position = positions[msg.sender][alphaNetuid];
+        
+        // Add TAO to collateral
+        position.collateral += msg.value;
+        position.lastUpdateBlock = block.number;
+        
+        // Update global state
+        totalCollateral += msg.value;
+        userCollateral[msg.sender] += msg.value;
+        
+        AlphaPair storage pair = alphaPairs[alphaNetuid];
+        pair.totalCollateral += msg.value;
+        
+        emit CollateralAdded(msg.sender, alphaNetuid, msg.value);
+    }
+
+    // ==================== INTERNAL HELPER FUNCTIONS ====================
+
+    /**
+     * @notice Check if sufficient liquidity exists for borrowing
+     * @param borrowAmount Amount of TAO to borrow
+     * @return hasLiquidity Whether sufficient liquidity exists
+     */
+    function _checkSufficientLiquidity(uint256 borrowAmount) internal view returns (bool hasLiquidity) {
+        uint256 availableLiquidity = _internalAvailableLiquidity();
+        
+        // Ensure enough liquidity with buffer
+        uint256 requiredLiquidity = borrowAmount.safeMul(PRECISION + liquidityBufferRatio) / PRECISION;
+        
+        return availableLiquidity >= requiredLiquidity;
+    }
+
+    /**
+     * @notice Get available liquidity in the pool
+     * @return availableLiquidity Amount of TAO available for borrowing
+     */
+    function _internalAvailableLiquidity() internal view returns (uint256 availableLiquidity) {
+        return totalLpStakes > totalBorrowed ? totalLpStakes - totalBorrowed : 0;
+    }
+
+    /**
+     * @notice Get user's maximum leverage based on tier thresholds
+     */
+    function _getUserMaxLeverage(address user) internal view returns (uint256 maxLeverageOut) {
+        uint256 balance = STAKING_PRECOMPILE.getStake(
+            protocolValidatorHotkey,
+            bytes32(uint256(uint160(user))),
+            TENEX_NETUID
+        );
+        if (balance >= tier5Threshold) return tier5MaxLeverage;
+        if (balance >= tier4Threshold) return tier4MaxLeverage;
+        if (balance >= tier3Threshold) return tier3MaxLeverage;
+        if (balance >= tier2Threshold) return tier2MaxLeverage;
+        if (balance >= tier1Threshold) return tier1MaxLeverage;
+        return tier0MaxLeverage;
+    }
+
+    /**
+     * @notice Distribute trading fees to protocol components
+     * @param feeAmount Fee amount to distribute
+     */
+    function _distributeFees(uint256 feeAmount) internal {
+        if (feeAmount == 0) return;
+        
+        // Update protocol fees for later distribution
+        protocolFees += feeAmount;
+        totalFeesCollected += feeAmount;
+    }
+
+    /**
+     * @notice Calculate trading fees for a position
+     * @param user User address
+     * @param positionValue Position value in TAO
+     * @return tradingFee Trading fee amount
+     */
+    function _calculateTradingFee(
+        address user,
+        uint256 positionValue
+    ) internal view returns (uint256 tradingFee) {
+        uint256 baseFee = positionValue.safeMul(tradingFeeRate) / PRECISION;
+        // Apply tier-based discount
+        return _calculateDiscountedFee(user, baseFee);
+    }
+
+    /**
+     * @notice Calculate accrued fees for a position
+     * @param user User address
+     * @param alphaNetuid Alpha subnet ID
+     * @return accruedFees Total accrued borrowing fees
+     */
+    function _calculatePositionFees(
+        address user,
+        uint16 alphaNetuid
+    ) internal view returns (uint256 accruedFees) {
+        Position storage position = positions[user][alphaNetuid];
+        if (!position.isActive) return 0;
+        
+        uint256 blocksElapsed = block.number - position.lastUpdateBlock;
+        AlphaPair storage pair = alphaPairs[alphaNetuid];
+        uint256 utilization = pair.totalCollateral == 0 ? 0 : pair.totalBorrowed.safeMul(PRECISION) / pair.totalCollateral;
+        uint256 ratePer360 = RiskCalculator.dynamicBorrowRatePer360(utilization);
+        uint256 borrowingFeeAmount = position.borrowed.safeMul(ratePer360).safeMul(blocksElapsed) / (PRECISION * 360);
+        
+        return borrowingFeeAmount;
+    }  
+
+    // ==================== PRECOMPILE INTERACTION FUNCTIONS ====================
+
+    /**
+     * @notice Stake TAO for Alpha tokens using correct precompile
+     * @param validatorHotkey Validator hotkey
+     * @param taoAmount TAO amount to stake
+     * @param alphaNetuid Alpha subnet ID
+     * @return alphaReceived Alpha tokens received (actual stake amount)
+     */
+    function _stakeTaoForAlpha(
+        bytes32 validatorHotkey,
+        uint256 taoAmount,
+        uint16 alphaNetuid
+    ) internal returns (uint256 alphaReceived) {
+        // Get initial stake amount
+        uint256 initialStake = STAKING_PRECOMPILE.getStake(
+            validatorHotkey, 
+            protocolSs58Address,
+            uint256(alphaNetuid)
+        );
+        
+        bytes memory data = abi.encodeWithSelector(
+            STAKING_PRECOMPILE.addStake.selector,
+            validatorHotkey,
+            taoAmount,
+            uint256(alphaNetuid)
+        );
+        (bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
+        if (!success) revert TenexiumErrors.StakeFailed();
+        
+        // Get final stake amount
+        uint256 finalStake = STAKING_PRECOMPILE.getStake(
+            validatorHotkey,
+            protocolSs58Address,
+            uint256(alphaNetuid)
+        );
+        
+        // Get actual alpha received
+        alphaReceived = finalStake - initialStake;
+        
+        return alphaReceived;
+    }
+
+    /**
+     * @notice Unstake Alpha tokens for TAO using correct precompile
+     * @param validatorHotkey Validator hotkey
+     * @param alphaAmount Alpha amount to unstake
+     * @param alphaNetuid Alpha subnet ID
+     * @return taoReceived TAO received from unstaking
+     */
+    function _unstakeAlphaForTao(
+        bytes32 validatorHotkey,
+        uint256 alphaAmount,
+        uint16 alphaNetuid
+    ) internal returns (uint256 taoReceived) {
+        // Get initial TAO balance
+        uint256 initialBalance = address(this).balance;
+
+        bytes memory data = abi.encodeWithSelector(
+            STAKING_PRECOMPILE.removeStake.selector,
+            validatorHotkey,
+            alphaAmount,
+            uint256(alphaNetuid)
+        );
+        (bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
+        if (!success) revert TenexiumErrors.UnstakeFailed();
+
+        // Calculate TAO received
+        uint256 finalBalance = address(this).balance;
+        taoReceived = finalBalance - initialBalance;
+
+        return taoReceived;
+    }
+
+    /**
+     * @notice Get validator hotkey for staking (selects highest vTrust; falls back to default)
+     * @param alphaNetuid Alpha subnet ID
+     * @return validatorHotkey Validator hotkey to use for staking
+     */
+    function _getAlphaValidatorHotkey(uint16 alphaNetuid) internal view returns (bytes32 validatorHotkey) {
+        // Prefer protocol-level validator when set
+        if (protocolValidatorHotkey != bytes32(0)) {
+            return protocolValidatorHotkey;
+        }
+
+        // Fallback: select highest vTrust validator for given subnet (gas heavy)
+        uint16 uidCount = METAGRAPH_PRECOMPILE.getUidCount(alphaNetuid);
+        uint16 bestUid = 0;
+        uint16 bestV = 0;
+        for (uint16 i = 0; i < uidCount; i++) {
+            uint16 v = METAGRAPH_PRECOMPILE.getVtrust(alphaNetuid, i);
+            if (v > bestV) {
+                bestV = v;
+                bestUid = i;
+            }
+        }
+        bytes32 hotkey = METAGRAPH_PRECOMPILE.getHotkey(alphaNetuid, bestUid);
+        return hotkey == bytes32(0) ? protocolValidatorHotkey : hotkey;
+    }
+}
