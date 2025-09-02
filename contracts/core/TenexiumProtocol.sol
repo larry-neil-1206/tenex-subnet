@@ -192,7 +192,9 @@ contract TenexiumProtocol is
     ) external onlyOwner {
         if (_maxLeverage > 20 * PRECISION) revert TenexiumErrors.LeverageTooHigh(_maxLeverage);
         if (_liquidationThreshold < (105 * PRECISION) / 100) revert TenexiumErrors.ThresholdTooLow(_liquidationThreshold);
-        _updateRiskParameters(_maxLeverage, _liquidationThreshold);
+        
+        maxLeverage = _maxLeverage;
+        liquidationThreshold = _liquidationThreshold;
 
         emit RiskParametersUpdated(_maxLeverage, _liquidationThreshold);
     }
@@ -211,7 +213,11 @@ contract TenexiumProtocol is
         if (_minLiquidityThreshold < 100e18) revert TenexiumErrors.ThresholdTooLow(_minLiquidityThreshold);
         if (_maxUtilizationRate > (95 * PRECISION) / 100) revert TenexiumErrors.UtilizationExceeded(_maxUtilizationRate);
         if (_liquidityBufferRatio > (50 * PRECISION) / 100) revert TenexiumErrors.FeeTooHigh(_liquidityBufferRatio);
-        _setLiquidityGuardrails(_minLiquidityThreshold, _maxUtilizationRate, _liquidityBufferRatio);
+        
+        minLiquidityThreshold = _minLiquidityThreshold;
+        maxUtilizationRate = _maxUtilizationRate;
+        liquidityBufferRatio = _liquidityBufferRatio;
+        
         _updateLiquidityCircuitBreaker();
 
         emit LiquidityGuardrailsUpdated(_minLiquidityThreshold, _maxUtilizationRate, _liquidityBufferRatio);
@@ -228,7 +234,9 @@ contract TenexiumProtocol is
     ) external onlyOwner {
         if (_userCooldownBlocks > 7_200) revert TenexiumErrors.UserCooldownTooLarge(_userCooldownBlocks);
         if (_lpCooldownBlocks > 7_200) revert TenexiumErrors.LpCooldownTooLarge(_lpCooldownBlocks);
-        _setActionCooldowns(_userCooldownBlocks, _lpCooldownBlocks);
+        
+        userActionCooldownBlocks = _userCooldownBlocks;
+        lpActionCooldownBlocks = _lpCooldownBlocks;
 
         emit ActionCooldownsUpdated(_userCooldownBlocks, _lpCooldownBlocks);
     }
@@ -246,7 +254,10 @@ contract TenexiumProtocol is
     ) external onlyOwner {
         if (_buybackRate > PRECISION) revert TenexiumErrors.PercentageTooHigh(_buybackRate);
         if (_buybackIntervalBlocks < 360) revert TenexiumErrors.IntervalTooShort(_buybackIntervalBlocks);
-        _setBuybackParameters(_buybackRate, _buybackIntervalBlocks, _buybackExecutionThreshold);
+        
+        buybackRate = _buybackRate;
+        buybackIntervalBlocks = _buybackIntervalBlocks;
+        buybackExecutionThreshold = _buybackExecutionThreshold;
 
         emit BuybackParametersUpdated(_buybackRate, _buybackIntervalBlocks, _buybackExecutionThreshold);
     }
@@ -262,7 +273,9 @@ contract TenexiumProtocol is
     ) external onlyOwner {
         if (_vestingDurationBlocks < 216000) revert TenexiumErrors.DurationTooShort(_vestingDurationBlocks);
         if (_cliffDurationBlocks > _vestingDurationBlocks) revert TenexiumErrors.CliffTooLong(_cliffDurationBlocks);
-        _setVestingParameters(_vestingDurationBlocks, _cliffDurationBlocks);
+        
+        vestingDurationBlocks = _vestingDurationBlocks;
+        cliffDurationBlocks = _cliffDurationBlocks;
 
         emit VestingParametersUpdated(_vestingDurationBlocks, _cliffDurationBlocks);
     }
@@ -281,7 +294,10 @@ contract TenexiumProtocol is
         if (_tradingFeeRate > PRECISION / 100) revert TenexiumErrors.FeeTooHigh(_tradingFeeRate);
         if (_borrowingFeeRate > (1 * PRECISION) / 1000) revert TenexiumErrors.FeeTooHigh(_borrowingFeeRate);
         if (_liquidationFeeRate > (10 * PRECISION) / 100) revert TenexiumErrors.FeeTooHigh(_liquidationFeeRate);
-        _setFeeParameters(_tradingFeeRate, _borrowingFeeRate, _liquidationFeeRate);
+        
+        tradingFeeRate = _tradingFeeRate;
+        borrowingFeeRate = _borrowingFeeRate;
+        liquidationFeeRate = _liquidationFeeRate;
 
         emit FeesUpdated(_tradingFeeRate, _borrowingFeeRate, _liquidationFeeRate);
     }
@@ -300,7 +316,15 @@ contract TenexiumProtocol is
         if (_trading[0] + _trading[1] + _trading[2] != PRECISION) revert TenexiumErrors.DistributionInvalid();
         if (_borrowing[0] + _borrowing[1] + _borrowing[2] != PRECISION) revert TenexiumErrors.DistributionInvalid();
         if (_liquidation[0] + _liquidation[1] + _liquidation[2] != PRECISION) revert TenexiumErrors.DistributionInvalid();
-        _setFeeDistributions(_trading, _borrowing, _liquidation);
+        tradingFeeLpShare = _trading[0];
+        tradingFeeLiquidatorShare = _trading[1];
+        tradingFeeProtocolShare = _trading[2];
+        borrowingFeeLpShare = _borrowing[0];
+        borrowingFeeLiquidatorShare = _borrowing[1];
+        borrowingFeeProtocolShare = _borrowing[2];
+        liquidationFeeLpShare = _liquidation[0];
+        liquidationFeeLiquidatorShare = _liquidation[1];
+        liquidationFeeProtocolShare = _liquidation[2];
 
         emit FeeDistributionsUpdated();
     }
@@ -326,7 +350,23 @@ contract TenexiumProtocol is
             if (_tierMaxLeverages[i] > maxLeverage) revert TenexiumErrors.LeverageTooHigh(_tierMaxLeverages[i]);
         }
 
-        _setTierParameters(_tierThresholds, _tierFeeDiscounts, _tierMaxLeverages);
+        tier1Threshold = _tierThresholds[0];
+        tier2Threshold = _tierThresholds[1];
+        tier3Threshold = _tierThresholds[2];
+        tier4Threshold = _tierThresholds[3];
+        tier5Threshold = _tierThresholds[4];
+        tier0FeeDiscount = _tierFeeDiscounts[0];
+        tier1FeeDiscount = _tierFeeDiscounts[1];
+        tier2FeeDiscount = _tierFeeDiscounts[2];
+        tier3FeeDiscount = _tierFeeDiscounts[3];
+        tier4FeeDiscount = _tierFeeDiscounts[4];
+        tier5FeeDiscount = _tierFeeDiscounts[5];
+        tier0MaxLeverage = _tierMaxLeverages[0];
+        tier1MaxLeverage = _tierMaxLeverages[1];
+        tier2MaxLeverage = _tierMaxLeverages[2];
+        tier3MaxLeverage = _tierMaxLeverages[3];
+        tier4MaxLeverage = _tierMaxLeverages[4];
+        tier5MaxLeverage = _tierMaxLeverages[5];
 
         emit TierParametersUpdated();
     }
