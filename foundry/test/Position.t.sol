@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-
 import { TenexiumProtocol } from "contracts/core/TenexiumProtocol.sol";
 
 contract MockAlpha {
@@ -71,8 +70,8 @@ contract PositionTest is Test {
             [uint256(35e7), 0, uint256(65e7)],
             [uint256(0), uint256(40e7), uint256(60e7)],
             [uint256(100e18), 1000e18, 5000e18, 20_000e18, 100_000e18],
-            [uint256(0), 10e7, 20e7, 30e7, 40e7, 50e7],
-            [uint256(2e18), 3e18, 4e18, 5e18, 7e18, 10e18],
+            [uint256(0), uint256(10e7), uint256(20e7), uint256(30e7), uint256(40e7), uint256(50e7)],
+            [uint256(2e18), uint256(3e18), uint256(4e18), uint256(5e18), uint256(7e18), uint256(10e18)],
             bytes32(uint256(1)) // protocol validator hotkey placeholder
         );
 
@@ -82,22 +81,21 @@ contract PositionTest is Test {
         vm.etch(address(0x0000000000000000000000000000000000000808), address(alpha).code);
         vm.etch(address(0x0000000000000000000000000000000000000805), address(staking).code);
 
-        // Fund protocol for LP
-        (bool ok,) = address(protocol).call{ value: 200 ether }("");
-        assertTrue(ok);
+        // Add liquidity to the pool properly
+        protocol.addLiquidity{ value: 200 ether }();
     }
 
     function testOpenClose2x() public {
         vm.startPrank(user);
         // Add liquidity as protocol already holds TAO, just open position
         protocol.openPosition{ value: 10 ether }(67, 2e18, 500);
-        (, , uint256 alphaAmount,, , , , bool isActive) = protocol.getUserPosition(user, 67);
-        assertTrue(isActive);
-        assertGt(alphaAmount, 0);
+        TenexiumProtocol.Position memory position = protocol.getUserPosition(user, 67);
+        assertTrue(position.isActive);
+        assertGt(position.alphaAmount, 0);
 
         protocol.closePosition(67, 0, 500);
-        (, , , , , , , isActive) = protocol.getUserPosition(user, 67);
-        assertFalse(isActive);
+        position = protocol.getUserPosition(user, 67);
+        assertFalse(position.isActive);
         vm.stopPrank();
     }
 }

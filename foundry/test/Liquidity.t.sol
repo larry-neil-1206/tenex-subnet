@@ -63,8 +63,8 @@ contract LiquidityTest is Test {
             [uint256(35e7), 0, uint256(65e7)],
             [uint256(0), uint256(40e7), uint256(60e7)],
             [uint256(100e18), 1000e18, 5000e18, 20_000e18, 100_000e18],
-            [uint256(0), 10e7, 20e7, 30e7, 40e7, 50e7],
-            [uint256(2e18), 3e18, 4e18, 5e18, 7e18, 10e18],
+            [uint256(0), uint256(10e7), uint256(20e7), uint256(30e7), uint256(40e7), uint256(50e7)],
+            [uint256(2e18), uint256(3e18), uint256(4e18), uint256(5e18), uint256(7e18), uint256(10e18)],
             bytes32(uint256(1))
         );
 
