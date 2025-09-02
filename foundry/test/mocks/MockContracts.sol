@@ -56,5 +56,3 @@ contract MockStaking {
         stake[hotkey][destination_coldkey][origin_netuid] += amount;
     }
 }
-
- 

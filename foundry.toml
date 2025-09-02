@@ -4,6 +4,7 @@ out = "out"
 viaIR = true
 libs = ["node_modules", "lib"]
 test = "foundry/test"
+script = "foundry/script"
 cache_path = "cache_forge"
 solc_version = "0.8.28"
 optimizer = true
@@ -14,5 +15,3 @@ evm_version = "paris"
 fs_permissions = [
   { access = "read", path = "./" }
 ]
-
-
