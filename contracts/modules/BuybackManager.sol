@@ -17,37 +17,6 @@ abstract contract BuybackManager is
 	TenexiumEvents
 {
 	using AlphaMath for uint256;
-	
-	// ==================== PARAMETER SETTERS ====================
-	
-	/**
-	 * @notice Update buyback parameters (owner only)
-	 * @param _buybackRate New percentage of fees for buybacks (PRECISION scaled)
-	 * @param _buybackIntervalBlocks New interval between buybacks (blocks)
-	 * @param _buybackExecutionThreshold Minimum pool balance required to enable buyback
-	 */
-	function _setBuybackParameters(
-		uint256 _buybackRate,
-		uint256 _buybackIntervalBlocks,
-		uint256 _buybackExecutionThreshold
-	) internal {
-		buybackRate = _buybackRate;
-		buybackIntervalBlocks = _buybackIntervalBlocks;
-		buybackExecutionThreshold = _buybackExecutionThreshold;
-	}
-	
-	/**
-	 * @notice Update vesting parameters (owner only)
-	 * @param newVestingDurationBlocks New default vesting duration
-	 * @param newCliffDurationBlocks New cliff duration
-	 */
-	function _setVestingParameters(
-		uint256 newVestingDurationBlocks,
-		uint256 newCliffDurationBlocks
-	) internal {
-		vestingDurationBlocks = newVestingDurationBlocks;
-		cliffDurationBlocks = newCliffDurationBlocks;
-	}
 
 	// ==================== BUYBACK FUNCTIONS ====================
 	

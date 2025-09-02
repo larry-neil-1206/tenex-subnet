@@ -14,26 +14,6 @@ import "../libraries/TenexiumErrors.sol";
 abstract contract LiquidityManager is TenexiumStorage, TenexiumEvents {
 	using AlphaMath for uint256;
 
-	// ==================== PARAMETER SETTERS ====================
-
-	function _setLiquidityGuardrails(
-		uint256 _minLiquidityThreshold,
-		uint256 _maxUtilizationRate,
-		uint256 _liquidityBufferRatio
-	) internal {
-		minLiquidityThreshold = _minLiquidityThreshold;
-		maxUtilizationRate = _maxUtilizationRate;
-		liquidityBufferRatio = _liquidityBufferRatio;
-	}
-
-	function _setActionCooldowns(
-		uint256 _userCooldownBlocks,
-		uint256 _lpCooldownBlocks
-	) internal {
-		userActionCooldownBlocks = _userCooldownBlocks;
-		lpActionCooldownBlocks = _lpCooldownBlocks;
-	}
-
 	// ==================== LIQUIDITY PROVIDER FUNCTIONS ====================
 
 	/**

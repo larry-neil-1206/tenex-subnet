@@ -15,21 +15,6 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents {
     using AlphaMath for uint256;
     using RiskCalculator for RiskCalculator.PositionData;
 
-    // ==================== PARAMETER SETTERS ====================
-
-    /**
-     * @notice Update risk parameters
-     * @param _maxLeverage New maximum leverage
-     * @param _liquidationThreshold New liquidation threshold
-     */
-    function _updateRiskParameters(
-        uint256 _maxLeverage,
-        uint256 _liquidationThreshold
-    ) internal {
-        maxLeverage = _maxLeverage;
-        liquidationThreshold = _liquidationThreshold;
-    }
-
     // ==================== LIQUIDATION FUNCTIONS ====================
 
     /**
