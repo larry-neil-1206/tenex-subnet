@@ -3,31 +3,12 @@ pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
 import { TenexiumProtocol } from "contracts/core/TenexiumProtocol.sol";
-
-contract MockAlphaUtil {
-    uint256 public priceRao = 1e9;
-    function getAlphaPrice(uint16) external view returns (uint256) { return priceRao; }
-    function getMovingAlphaPrice(uint16) external view returns (uint256) { return priceRao; }
-    function simSwapTaoForAlpha(uint16, uint64 taoRao) external view returns (uint256) { return uint256(taoRao); }
-    function simSwapAlphaForTao(uint16, uint64 alphaRao) external view returns (uint256) { return uint256(alphaRao); }
-}
-
-contract MockStakingUtil {
-    mapping(bytes32 => mapping(bytes32 => mapping(uint256 => uint256))) public stake;
-    receive() external payable {}
-    function addStake(bytes32 hotkey, uint256 amountRao, uint256 netuid) external payable {
-        bytes32 cold = bytes32(uint256(uint160(msg.sender)));
-        stake[hotkey][cold][netuid] += amountRao;
-    }
-    function getStake(bytes32 hotkey, bytes32 coldkey, uint256 netuid) external view returns (uint256) {
-        return stake[hotkey][coldkey][netuid];
-    }
-}
+import { MockAlpha, MockStaking } from "./mocks/MockContracts.sol";
 
 contract UtilizationTest is Test {
     TenexiumProtocol protocol;
-    MockAlphaUtil alpha;
-    MockStakingUtil staking;
+    MockAlpha alpha;
+    MockStaking staking;
 
     function setUp() public {
         vm.deal(address(this), 1_000 ether);
@@ -56,8 +37,8 @@ contract UtilizationTest is Test {
             [uint256(2e18), uint256(3e18), uint256(4e18), uint256(5e18), uint256(7e18), uint256(10e18)],
             bytes32(uint256(1))
         );
-        alpha = new MockAlphaUtil();
-        staking = new MockStakingUtil();
+        alpha = new MockAlpha();
+        staking = new MockStaking();
         vm.etch(address(0x0000000000000000000000000000000000000808), address(alpha).code);
         vm.etch(address(0x0000000000000000000000000000000000000805), address(staking).code);
 
