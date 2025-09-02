@@ -42,7 +42,6 @@ contract AdminTest is Test {
         vm.prank(attacker);
         vm.expectRevert();
         protocol.updateRiskParameters(12e9, 115e7);
-        protocol.updateRiskParameters(12e9, 115e7);
     }
 
     function testEmergencyPauseToggle() public {
