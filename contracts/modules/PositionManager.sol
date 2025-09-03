@@ -16,15 +16,6 @@ abstract contract PositionManager is FeeManager {
     using AlphaMath for uint256;
     using RiskCalculator for RiskCalculator.PositionData;
 
-    // ==================== PARAMETER SETTERS ====================
-    function _setRiskParameters(
-        uint256 _maxLeverage,
-        uint256 _liquidationThreshold
-    ) internal {
-        maxLeverage = _maxLeverage;
-        liquidationThreshold = _liquidationThreshold;
-    }
-
     // ==================== POSITION MANAGEMENT FUNCTIONS ====================
 
     /**
@@ -316,18 +307,6 @@ abstract contract PositionManager is FeeManager {
         if (balance >= tier2Threshold) return tier2MaxLeverage;
         if (balance >= tier1Threshold) return tier1MaxLeverage;
         return tier0MaxLeverage;
-    }
-
-    /**
-     * @notice Distribute trading fees to protocol components
-     * @param feeAmount Fee amount to distribute
-     */
-    function _distributeFees(uint256 feeAmount) internal {
-        if (feeAmount == 0) return;
-        
-        // Update protocol fees for later distribution
-        protocolFees += feeAmount;
-        totalFeesCollected += feeAmount;
     }
 
     /**
