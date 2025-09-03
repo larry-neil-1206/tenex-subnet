@@ -6,6 +6,7 @@ import "../core/TenexiumStorage.sol";
 import "../core/TenexiumEvents.sol";
 import "../libraries/AlphaMath.sol";
 import "../libraries/TenexiumErrors.sol";
+import "./PrecompileUtils.sol";
 
 /**
  * @title BuybackManager
@@ -14,7 +15,8 @@ import "../libraries/TenexiumErrors.sol";
  */
 abstract contract BuybackManager is 
 	TenexiumStorage, 
-	TenexiumEvents
+	TenexiumEvents,
+	PrecompileUtils
 {
 	using AlphaMath for uint256;
 
@@ -52,7 +54,7 @@ abstract contract BuybackManager is
 		if (expectedAlpha == 0) revert TenexiumErrors.BuybackSimInvalid(buybackAmount);
 		
 		// Execute buyback by staking TAO to get Tenexium alpha
-		uint256 actualAlphaReceived = _stakeTaoForAlpha(protocolValidatorHotkey, buybackAmount);
+		uint256 actualAlphaReceived = _stakeTaoForAlpha(protocolValidatorHotkey, buybackAmount, TENEX_NETUID);
 		
 		// Calculate actual slippage for reporting
 		uint256 actualSlippage = expectedAlpha > actualAlphaReceived ? 
@@ -201,46 +203,5 @@ abstract contract BuybackManager is
 			lastBuybackBlock + buybackIntervalBlocks,
 			_canExecuteBuyback()
 		);
-	}
-
-	// ==================== PRECOMPILE INTERACTION FUNCTIONS ====================
-	
-	/**
-	 * @notice Stake TAO for Alpha tokens using correct precompile
-	 * @param validatorHotkey Validator hotkey
-	 * @param taoAmount TAO amount to stake
-	 * @return alphaReceived Alpha tokens received
-	 */
-	function _stakeTaoForAlpha(
-		bytes32 validatorHotkey,
-		uint256 taoAmount
-	) internal returns (uint256 alphaReceived) {
-		// Get initial stake amount
-		uint256 initialStake = STAKING_PRECOMPILE.getStake(
-			validatorHotkey,
-			protocolSs58Address,
-			TENEX_NETUID
-		);
-		
-        bytes memory data = abi.encodeWithSelector(
-            STAKING_PRECOMPILE.addStake.selector,
-            validatorHotkey,
-            taoAmount,
-            TENEX_NETUID
-        );
-        (bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
-        if (!success) revert TenexiumErrors.StakeFailed();
-		
-		// Get final stake amount
-		uint256 finalStake = STAKING_PRECOMPILE.getStake(
-			validatorHotkey,
-			protocolSs58Address,
-			TENEX_NETUID
-		);
-		
-		// Get actual alpha received
-		alphaReceived = finalStake - initialStake;
-		
-		return alphaReceived;
 	}
 } 
