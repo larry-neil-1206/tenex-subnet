@@ -6,7 +6,7 @@ import "../core/TenexiumStorage.sol";
 import "../core/TenexiumEvents.sol";
 import "../libraries/AlphaMath.sol";
 import "../libraries/TenexiumErrors.sol";
-import "./PrecompileUtils.sol";
+import "./PrecompileAdapter.sol";
 
 /**
  * @title BuybackManager
@@ -16,7 +16,7 @@ import "./PrecompileUtils.sol";
 abstract contract BuybackManager is 
 	TenexiumStorage, 
 	TenexiumEvents,
-	PrecompileUtils
+	PrecompileAdapter
 {
 	using AlphaMath for uint256;
 

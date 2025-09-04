@@ -6,12 +6,13 @@ import "../core/TenexiumEvents.sol";
 import "../libraries/AlphaMath.sol";
 import "../libraries/RiskCalculator.sol";
 import "../libraries/TenexiumErrors.sol";
+import "./PrecompileAdapter.sol";
 
 /**
  * @title LiquidationManager
  * @notice Functions for position liquidation using single threshold approach
  */
-abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents {
+abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, PrecompileAdapter {
     using AlphaMath for uint256;
     using RiskCalculator for RiskCalculator.PositionData;
 
@@ -53,7 +54,7 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents {
         
         // Unstake alpha to get TAO using the validator hotkey used at open (fallback to protocolValidatorHotkey)
         bytes32 vHotkey = position.validatorHotkey == bytes32(0) ? protocolValidatorHotkey : position.validatorHotkey;
-        uint256 taoReceived = _unstakeAlphaForTaoLiq(vHotkey, position.alphaAmount, alphaNetuid);
+        uint256 taoReceived = _unstakeAlphaForTao(vHotkey, position.alphaAmount, alphaNetuid);
         if (taoReceived == 0) revert TenexiumErrors.UnstakeFailed();
         
         // Payment waterfall: Debt > Liquidation fee (split) > User
@@ -288,37 +289,7 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents {
         return position.accruedFees + borrowingFeeAmount;
     }
 
-    // ==================== PRECOMPILE INTERACTION FUNCTIONS ====================
 
-    /**
-     * @notice Unstake Alpha tokens for TAO using correct precompile
-     * @param alphaNetuid Alpha subnet ID
-     * @param alphaAmount Alpha amount to unstake
-     * @return taoReceived TAO received from unstaking
-     */
-    function _unstakeAlphaForTaoLiq(
-        bytes32 validatorHotkey,
-        uint256 alphaAmount,
-        uint16 alphaNetuid
-    ) internal returns (uint256 taoReceived) {
-        // Get initial TAO balance
-        uint256 initialBalance = address(this).balance;
-
-        bytes memory data = abi.encodeWithSelector(
-            STAKING_PRECOMPILE.removeStake.selector,
-            validatorHotkey,
-            alphaAmount,
-            uint256(alphaNetuid)
-        );
-        (bool success, ) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
-        if (!success) revert TenexiumErrors.UnstakeFailed();
-
-        // Calculate TAO received
-        uint256 finalBalance = address(this).balance;
-        taoReceived = finalBalance - initialBalance;
-
-        return taoReceived;
-    }
 
     // ==================== PUBLIC THIN WRAPPERS ====================
     
