@@ -3,67 +3,67 @@ pragma solidity ^0.8.19;
 
 import "../core/TenexiumStorage.sol";
 import "../libraries/TenexiumErrors.sol";
+import "../libraries/AlphaMath.sol";
 
 /**
- * @title PrecompileUtils
- * @notice Library for interacting with the Precompiles
- * @dev Provides basic functions to interact with the Precompiles
+ * @title PrecompileAdapter
+ * @notice Adapter for interacting with Bittensor precompiles (staking, alpha, metagraph)
  */
-abstract contract PrecompileUtils is TenexiumStorage {
+abstract contract PrecompileAdapter is TenexiumStorage {
+    using AlphaMath for uint256;
+
     /**
-     * @notice Stake TAO for Alpha tokens using correct precompile
+     * @notice Stake TAO for Alpha tokens using the staking precompile
      * @param validatorHotkey Validator hotkey
-     * @param taoAmount TAO amount to stake
+     * @param taoAmount TAO amount to stake (wei)
      * @param alphaNetuid Alpha subnet ID
-     * @return alphaReceived Alpha tokens received (actual stake amount)
+     * @return alphaReceived Alpha tokens received (actual stake amount, in alpha base units)
      */
     function _stakeTaoForAlpha(
         bytes32 validatorHotkey,
         uint256 taoAmount,
         uint16 alphaNetuid
     ) internal returns (uint256 alphaReceived) {
-        // Get initial stake amount
+        // Snapshot initial stake under our protocol coldkey mapping
         uint256 initialStake = STAKING_PRECOMPILE.getStake(
-            validatorHotkey, 
+            validatorHotkey,
             protocolSs58Address,
             uint256(alphaNetuid)
         );
-        
+
+        // Convert wei -> rao for precompile arg and send value with the call
+        uint256 amountRao = taoAmount.weiToRao();
         bytes memory data = abi.encodeWithSelector(
             STAKING_PRECOMPILE.addStake.selector,
             validatorHotkey,
-            taoAmount,
+            amountRao,
             uint256(alphaNetuid)
         );
-        (bool success, ) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
+        (bool success, ) = address(STAKING_PRECOMPILE).call{value: taoAmount, gas: gasleft()}(data);
         if (!success) revert TenexiumErrors.StakeFailed();
-        
-        // Get final stake amount
+
         uint256 finalStake = STAKING_PRECOMPILE.getStake(
             validatorHotkey,
             protocolSs58Address,
             uint256(alphaNetuid)
         );
-        
-        // Get actual alpha received
+
         alphaReceived = finalStake - initialStake;
-        
         return alphaReceived;
     }
 
     /**
-     * @notice Unstake Alpha tokens for TAO using correct precompile
+     * @notice Unstake Alpha tokens for TAO using the staking precompile
      * @param validatorHotkey Validator hotkey
-     * @param alphaAmount Alpha amount to unstake
+     * @param alphaAmount Alpha amount to unstake (alpha base units)
      * @param alphaNetuid Alpha subnet ID
-     * @return taoReceived TAO received from unstaking
+     * @return taoReceived TAO received from unstaking (wei)
      */
     function _unstakeAlphaForTao(
         bytes32 validatorHotkey,
         uint256 alphaAmount,
         uint16 alphaNetuid
     ) internal returns (uint256 taoReceived) {
-        // Get initial TAO balance
         uint256 initialBalance = address(this).balance;
 
         bytes memory data = abi.encodeWithSelector(
@@ -75,25 +75,46 @@ abstract contract PrecompileUtils is TenexiumStorage {
         (bool success, ) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
         if (!success) revert TenexiumErrors.UnstakeFailed();
 
-        // Calculate TAO received
         uint256 finalBalance = address(this).balance;
         taoReceived = finalBalance - initialBalance;
-
         return taoReceived;
     }
 
     /**
-     * @notice Get validator hotkey for staking (selects highest vTrust; falls back to default)
-     * @param alphaNetuid Alpha subnet ID
-     * @return validatorHotkey Validator hotkey to use for staking
+     * @notice Transfer staked alpha to another coldkey via staking precompile
+     * @param destinationColdkey Destination coldkey
+     * @param hotkey Validator hotkey
+     * @param originNetuid Origin subnet id
+     * @param destinationNetuid Destination subnet id
+     * @param amount Alpha amount to transfer (alpha base units)
+     */
+    function _transferStake(
+        bytes32 destinationColdkey,
+        bytes32 hotkey,
+        uint256 originNetuid,
+        uint256 destinationNetuid,
+        uint256 amount
+    ) internal {
+        bytes memory data = abi.encodeWithSelector(
+            STAKING_PRECOMPILE.transferStake.selector,
+            destinationColdkey,
+            hotkey,
+            originNetuid,
+            destinationNetuid,
+            amount
+        );
+        (bool success, ) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
+        if (!success) revert TenexiumErrors.TransferFailed();
+    }
+
+    /**
+     * @notice Select a validator hotkey (prefers protocol-level hotkey, fallback highest vTrust)
      */
     function _getAlphaValidatorHotkey(uint16 alphaNetuid) internal view returns (bytes32 validatorHotkey) {
-        // Prefer protocol-level validator when set
         if (protocolValidatorHotkey != bytes32(0)) {
             return protocolValidatorHotkey;
         }
 
-        // Fallback: select highest vTrust validator for given subnet (gas heavy)
         uint16 uidCount = METAGRAPH_PRECOMPILE.getUidCount(alphaNetuid);
         uint16 bestUid = 0;
         uint16 bestV = 0;
@@ -108,3 +129,5 @@ abstract contract PrecompileUtils is TenexiumStorage {
         return hotkey == bytes32(0) ? protocolValidatorHotkey : hotkey;
     }
 }
+
+

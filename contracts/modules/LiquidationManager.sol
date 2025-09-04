@@ -6,12 +6,13 @@ import "../core/TenexiumEvents.sol";
 import "../libraries/AlphaMath.sol";
 import "../libraries/RiskCalculator.sol";
 import "../libraries/TenexiumErrors.sol";
+import "./PrecompileAdapter.sol";
 
 /**
  * @title LiquidationManager
  * @notice Functions for position liquidation using single threshold approach
  */
-abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents {
+abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, PrecompileAdapter {
     using AlphaMath for uint256;
     using RiskCalculator for RiskCalculator.PositionData;
 
@@ -53,7 +54,7 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents {
         
         // Unstake alpha to get TAO using the validator hotkey used at open (fallback to protocolValidatorHotkey)
         bytes32 vHotkey = position.validatorHotkey == bytes32(0) ? protocolValidatorHotkey : position.validatorHotkey;
-        uint256 taoReceived = _unstakeAlphaForTaoLiq(vHotkey, position.alphaAmount, alphaNetuid);
+        uint256 taoReceived = _unstakeAlphaForTao(vHotkey, position.alphaAmount, alphaNetuid);
         if (taoReceived == 0) revert TenexiumErrors.UnstakeFailed();
         
         // Payment waterfall: Debt > Liquidation fee (split) > User
@@ -115,89 +116,7 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents {
         );
     }
 
-    /**
-     * @notice Create a liquidation request for review
-     * @param params Liquidation parameters
-     * @return requestId Unique request identifier
-     */
-    function _createLiquidationRequest(LiquidateParams calldata params)
-        internal
-        returns (bytes32 requestId)
-    {
-        if (!positions[params.user][params.alphaNetuid].isActive) revert TenexiumErrors.PositionNotFound(params.user, params.alphaNetuid);
-        
-        // Generate unique request ID
-        requestId = keccak256(abi.encodePacked(
-            params.user,
-            params.alphaNetuid,
-            block.number,
-            msg.sender
-        ));
-        
-        // Create liquidation request
-        LiquidationRequest storage request = liquidationRequests[requestId];
-        request.user = params.user;
-        request.alphaNetuid = params.alphaNetuid;
-        request.requestTime = block.number;
-        request.deadline = block.number + 360;
-        request.justificationUrl = params.justificationUrl;
-        request.contentHash = params.contentHash;
-        request.isProcessed = false;
-        
-        // Calculate liquidation amounts
-        Position storage position = positions[params.user][params.alphaNetuid];
-        request.collateralToLiquidate = position.collateral;
-        request.alphaToLiquidate = position.alphaAmount;
-        
-        emit LiquidationRequestCreated(
-            requestId,
-            params.user,
-            params.alphaNetuid,
-            request.deadline
-        );
-        
-        return requestId;
-    }
-
     // ==================== RISK ASSESSMENT FUNCTIONS ====================
-
-    /**
-     * @notice Assess risk for a position with automated thresholds
-     * @param user Address of position holder
-     * @param alphaNetuid Alpha subnet ID
-     * @return assessment Comprehensive risk assessment
-     */
-    function _assessPositionRisk(
-        address user,
-        uint16 alphaNetuid
-    ) internal view returns (RiskCalculator.RiskAssessment memory assessment) {
-        Position storage position = positions[user][alphaNetuid];
-        if (!position.isActive) {
-            return assessment;
-        }
-        
-        // Convert position to RiskCalculator format
-        RiskCalculator.PositionData memory positionData = RiskCalculator.PositionData({
-            alphaAmount: position.alphaAmount,
-            borrowed: position.borrowed,
-            collateral: position.collateral,
-            accruedFees: position.accruedFees,
-            lastUpdateBlock: position.lastUpdateBlock,
-            isActive: position.isActive
-        });
-        
-        // Get current alpha price
-        uint256 currentPrice = _getValidatedAlphaPrice(alphaNetuid);
-        
-        // Assess risk using library
-        assessment = RiskCalculator.assessPositionRisk(
-            positionData,
-            currentPrice,
-            liquidationThreshold
-        );
-        
-        return assessment;
-    }
 
     /**
      * @notice Check if a position is liquidatable using single threshold
@@ -370,37 +289,7 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents {
         return position.accruedFees + borrowingFeeAmount;
     }
 
-    // ==================== PRECOMPILE INTERACTION FUNCTIONS ====================
 
-    /**
-     * @notice Unstake Alpha tokens for TAO using correct precompile
-     * @param alphaNetuid Alpha subnet ID
-     * @param alphaAmount Alpha amount to unstake
-     * @return taoReceived TAO received from unstaking
-     */
-    function _unstakeAlphaForTaoLiq(
-        bytes32 validatorHotkey,
-        uint256 alphaAmount,
-        uint16 alphaNetuid
-    ) internal returns (uint256 taoReceived) {
-        // Get initial TAO balance
-        uint256 initialBalance = address(this).balance;
-
-        bytes memory data = abi.encodeWithSelector(
-            STAKING_PRECOMPILE.removeStake.selector,
-            validatorHotkey,
-            alphaAmount,
-            uint256(alphaNetuid)
-        );
-        (bool success, ) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
-        if (!success) revert TenexiumErrors.UnstakeFailed();
-
-        // Calculate TAO received
-        uint256 finalBalance = address(this).balance;
-        taoReceived = finalBalance - initialBalance;
-
-        return taoReceived;
-    }
 
     // ==================== PUBLIC THIN WRAPPERS ====================
     

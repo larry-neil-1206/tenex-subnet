@@ -7,13 +7,13 @@ import "../libraries/AlphaMath.sol";
 import "../libraries/RiskCalculator.sol";
 import "../libraries/TenexiumErrors.sol";
 import "./FeeManager.sol";
-import "./PrecompileUtils.sol";
+import "./PrecompileAdapter.sol";
 
 /**
  * @title PositionManager
  * @notice Functions for position opening, closing, and collateral management
  */
-abstract contract PositionManager is FeeManager, PrecompileUtils {
+abstract contract PositionManager is FeeManager, PrecompileAdapter {
     using AlphaMath for uint256;
     using RiskCalculator for RiskCalculator.PositionData;
 

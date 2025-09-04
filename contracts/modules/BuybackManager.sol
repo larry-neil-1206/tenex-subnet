@@ -6,7 +6,7 @@ import "../core/TenexiumStorage.sol";
 import "../core/TenexiumEvents.sol";
 import "../libraries/AlphaMath.sol";
 import "../libraries/TenexiumErrors.sol";
-import "./PrecompileUtils.sol";
+import "./PrecompileAdapter.sol";
 
 /**
  * @title BuybackManager
@@ -16,7 +16,7 @@ import "./PrecompileUtils.sol";
 abstract contract BuybackManager is 
 	TenexiumStorage, 
 	TenexiumEvents,
-	PrecompileUtils
+	PrecompileAdapter
 {
 	using AlphaMath for uint256;
 
@@ -137,17 +137,13 @@ abstract contract BuybackManager is
 		}
 		
 		if (totalClaimable > 0) {
-			bytes memory data = abi.encodeWithSelector(
-				STAKING_PRECOMPILE.transferStake.selector,
+			_transferStake(
 				beneficiarySs58Address,
 				protocolValidatorHotkey,
 				TENEX_NETUID,
 				TENEX_NETUID,
 				totalClaimable
 			);
-			(bool success, ) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
-			if (!success) revert TenexiumErrors.TransferFailed();
-
 			claimed = totalClaimable;
 			emit TokensClaimed(msg.sender, beneficiarySs58Address, totalClaimable);
 		}
