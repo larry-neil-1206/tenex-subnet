@@ -138,7 +138,7 @@ contract DeployConfig {
      * @notice Get all tier thresholds as an array
      * @return Array of tier thresholds in wei
      */
-    function getTierThresholds() external pure returns (uint256[] memory) {
+    function getTierThresholds() internal pure returns (uint256[] memory) {
         uint256[] memory thresholds = new uint256[](5);
         thresholds[0] = TIER_1_THRESHOLD;
         thresholds[1] = TIER_2_THRESHOLD;
@@ -152,7 +152,7 @@ contract DeployConfig {
      * @notice Get all tier fee discounts as an array
      * @return Array of tier fee discounts (PRECISION = 1e9)
      */
-    function getTierFeeDiscounts() external pure returns (uint256[] memory) {
+    function getTierFeeDiscounts() internal pure returns (uint256[] memory) {
         uint256[] memory discounts = new uint256[](6);
         discounts[0] = TIER_0_FEE_DISCOUNT;
         discounts[1] = TIER_1_FEE_DISCOUNT;
@@ -167,7 +167,7 @@ contract DeployConfig {
      * @notice Get all tier leverage limits as an array
      * @return Array of tier leverage limits (PRECISION = 1e9)
      */
-    function getTierMaxLeverages() external pure returns (uint256[] memory) {
+    function getTierMaxLeverages() internal pure returns (uint256[] memory) {
         uint256[] memory leverages = new uint256[](6);
         leverages[0] = TIER_0_MAX_LEVERAGE;
         leverages[1] = TIER_1_MAX_LEVERAGE;
@@ -182,7 +182,7 @@ contract DeployConfig {
      * @notice Get trading fee distribution as an array
      * @return Array of [lpShare, liquidatorShare, protocolShare] (PRECISION = 1e9)
      */
-    function getTradingFeeDistribution() external pure returns (uint256[] memory) {
+    function getTradingFeeDistribution() internal pure returns (uint256[] memory) {
         uint256[] memory distribution = new uint256[](3);
         distribution[0] = TRADING_FEE_LP_SHARE;
         distribution[1] = TRADING_FEE_LIQUIDATOR_SHARE;
@@ -194,7 +194,7 @@ contract DeployConfig {
      * @notice Get borrowing fee distribution as an array
      * @return Array of [lpShare, liquidatorShare, protocolShare] (PRECISION = 1e9)
      */
-    function getBorrowingFeeDistribution() external pure returns (uint256[] memory) {
+    function getBorrowingFeeDistribution() internal pure returns (uint256[] memory) {
         uint256[] memory distribution = new uint256[](3);
         distribution[0] = BORROWING_FEE_LP_SHARE;
         distribution[1] = BORROWING_FEE_LIQUIDATOR_SHARE;
@@ -206,7 +206,7 @@ contract DeployConfig {
      * @notice Get liquidation fee distribution as an array
      * @return Array of [lpShare, liquidatorShare, protocolShare] (PRECISION = 1e9)
      */
-    function getLiquidationFeeDistribution() external pure returns (uint256[] memory) {
+    function getLiquidationFeeDistribution() internal pure returns (uint256[] memory) {
         uint256[] memory distribution = new uint256[](3);
         distribution[0] = LIQUIDATION_FEE_LP_SHARE;
         distribution[1] = LIQUIDATION_FEE_LIQUIDATOR_SHARE;
