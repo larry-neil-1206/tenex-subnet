@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "npx hardhat test",
+    "test": "npx hardhat test test/local/TenexiumProtocol.test.ts",
+    "test-getters": "npx hardhat run test/testnet/getters.ts",
     "build": "npx hardhat compile",
     "deploy:testnet": "npx hardhat deploy:upgradeable --save --network testnet",
     "anvil": "anvil -p 8545",
