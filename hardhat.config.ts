@@ -19,7 +19,14 @@ const config: HardhatUserConfig = {
     local: {
       url: "http://127.0.0.1:9944",
       accounts: process.env.ETH_PRIVATE_KEY ? [process.env.ETH_PRIVATE_KEY] : []
-    }
+    },
+    // hardhat: {
+    //   forking: {
+    //     url: "https://lite.chain.opentensor.ai",
+    //     blockNumber: 6366360
+    //     ,
+    //   },
+    // },
   },
   solidity: {
     version: "0.8.28",

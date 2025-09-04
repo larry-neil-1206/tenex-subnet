@@ -50,18 +50,18 @@ contract LiquidityTest is Test {
 
     function testAddRemoveLiquidity() public {
         vm.startPrank(lp);
-        protocol.addLiquidity{ value: 50 ether }();
+        protocol.addLiquidity{ value: 200 ether }();
         (uint256 stake,,) = protocol.getLpInfo(lp);
-        assertEq(stake, 50 ether);
+        assertEq(stake, 200 ether);
 
-        protocol.removeLiquidity(10 ether);
+        protocol.removeLiquidity(50 ether);
         (stake,,) = protocol.getLpInfo(lp);
-        assertEq(stake, 40 ether);
+        assertEq(stake, 150 ether);
 
         // Remove partial liquidity instead of all to avoid circuit breaker
         protocol.removeLiquidity(30 ether);
         (stake,,) = protocol.getLpInfo(lp);
-        assertEq(stake, 10 ether);
+        assertEq(stake, 120 ether);
         vm.stopPrank();
     }
 }
