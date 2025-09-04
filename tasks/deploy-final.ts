@@ -3,6 +3,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import * as fs from "fs";
 import * as path from "path";
 import deployConfig from "./deploy-config-testnet";
+import { convertH160ToSS58, publicKeyToHex, ss58ToPublicKey } from "./address-utils";
 
 // Types for deployment
 interface DeploymentResult {
@@ -36,109 +37,6 @@ const utils = {
         console.log(`  📁 Deployment info saved to ${filePath}`);
     },
 };
-
-// Task: Deploy immutable contract
-task("deploy:immutable", "Deploy Tenexium Protocol with immutable parameters")
-    .addFlag("save", "Save deployment info to file")
-    .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
-        console.log("🚀 Deploying Tenexium Protocol (Immutable)...");
-        console.log("=============================================");
-        
-        const networkName = hre.network.name;
-        const shouldSave = taskArgs.save;
-        
-        console.log(`📊 Deployment Information:`);
-        console.log(`  Network: ${networkName}`);
-        
-        try {
-            // Get deployer
-            const [deployer] = await hre.ethers.getSigners();
-            
-            console.log(`  Deployer: ${deployer.address}`);
-            console.log(`  Deployer balance: ${hre.ethers.formatEther(await deployer.provider.getBalance(deployer.address))} ETH`);
-            
-            // Deploy contract
-            console.log("\n📦 Deploying TenexiumProtocol...");
-            const TenexiumProtocol = await hre.ethers.getContractFactory("TenexiumProtocol");
-            
-            const tenexiumProtocol = await hre.upgrades.deployProxy(
-                TenexiumProtocol,
-                [
-                    deployConfig.maxLeverage,
-                    deployConfig.liquidationThreshold,
-                    deployConfig.minLiquidityThreshold,
-                    deployConfig.maxUtilizationRate,
-                    deployConfig.liquidityBufferRatio,
-                    deployConfig.userCooldownBlocks,
-                    deployConfig.lpCooldownBlocks,
-                    deployConfig.buybackRate,
-                    deployConfig.buybackIntervalBlocks,
-                    deployConfig.buybackExecutionThreshold,
-                    deployConfig.vestingDurationBlocks,
-                    deployConfig.cliffDurationBlocks,
-                    deployConfig.baseTradingFee,
-                    deployConfig.borrowingFeeRate,
-                    deployConfig.baseLiquidationFee,
-                    [
-                        deployConfig.tradingFeeDistribution.lpShare,
-                        deployConfig.tradingFeeDistribution.liquidatorShare,
-                        deployConfig.tradingFeeDistribution.protocolShare
-                    ],
-                    [
-                        deployConfig.borrowingFeeDistribution.lpShare,
-                        deployConfig.borrowingFeeDistribution.liquidatorShare,
-                        deployConfig.borrowingFeeDistribution.protocolShare
-                    ],
-                    [
-                        deployConfig.liquidationFeeDistribution.lpShare,
-                        deployConfig.liquidationFeeDistribution.liquidatorShare,
-                        deployConfig.liquidationFeeDistribution.protocolShare
-                    ],
-                    deployConfig.tierThresholds,
-                    deployConfig.tierFeeDiscounts,
-                    deployConfig.tierMaxLeverages,
-                    deployConfig.protocolValidatorHotkey
-                ],
-                {
-                    initializer: "initialize",
-                    kind: "uups"
-                }
-            );
-
-            await tenexiumProtocol.waitForDeployment();
-            const address = await tenexiumProtocol.getAddress();
-            console.log(`  ✅ TenexiumProtocol deployed to: ${address}`);
-            
-            // Get implementation address
-            const implementationAddress = await hre.upgrades.erc1967.getImplementationAddress(address);
-            console.log(`  📋 Implementation address: ${implementationAddress}`);
-            
-            // Save deployment info if requested
-            if (shouldSave) {
-                const deploymentInfo: DeploymentResult = {
-                    network: networkName,
-                    deployer: deployer.address,
-                    timestamp: new Date().toISOString(),
-                    tenexiumProtocol: {
-                        proxy: address,
-                        implementation: implementationAddress,
-                        address: address
-                    }
-                };
-                utils.saveDeployment(networkName, deploymentInfo);
-            }
-            
-            console.log("\n🎉 Deployment completed successfully!");
-            console.log("📋 Contract Addresses:");
-            console.log("TenexiumProtocol (Proxy):", address);
-            console.log("Implementation:", implementationAddress);
-            
-        } catch (error: any) {
-            console.error("\n❌ Deployment failed:");
-            console.error(error.message);
-            process.exit(1);
-        }
-    });
 
 // Task: Deploy upgradeable contract
 task("deploy:upgradeable", "Deploy Tenexium Protocol with upgradeable parameters")
@@ -216,6 +114,16 @@ task("deploy:upgradeable", "Deploy Tenexium Protocol with upgradeable parameters
             // Get implementation address
             const implementationAddress = await hre.upgrades.erc1967.getImplementationAddress(address);
             console.log(`  📋 Implementation address: ${implementationAddress}`);
+            
+            // Post-deploy configuration
+            console.log("\n⚙️  Post-deploy configuration");
+            const protocolSs58Address = convertH160ToSS58(address);
+            const protocolSs58PublicKey = ss58ToPublicKey(protocolSs58Address);
+            console.log("  → Setting protocol SS58 address (bytes32)");
+            const tx = await tenexiumProtocol.updateProtocolSs58Address(protocolSs58PublicKey);
+            await tx.wait();
+            console.log("    ✅ Protocol SS58 address set to " + protocolSs58Address + " with public key " + publicKeyToHex(protocolSs58PublicKey));
+            
             
             // Save deployment info if requested
             if (shouldSave) {
