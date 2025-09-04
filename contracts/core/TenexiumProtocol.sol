@@ -41,6 +41,13 @@ contract TenexiumProtocol is
     // Protocol version
     string public constant VERSION = "1.0.0";
 
+    /**
+     * @notice Minimal constructor for UUPS proxy pattern
+     */
+    constructor() {
+        _disableInitializers();
+    }
+
     // ==================== INITIALIZATION ====================
 
     /**

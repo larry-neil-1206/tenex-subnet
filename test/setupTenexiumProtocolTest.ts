@@ -69,6 +69,7 @@ export async function setupTenexiumFixture() {
         {
             initializer: "initialize",
             kind: "uups",
+            unsafeAllow: ["constructor"]
         }
     );
     
