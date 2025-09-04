@@ -35,7 +35,7 @@ abstract contract PrecompileUtils is TenexiumStorage {
             taoAmount,
             uint256(alphaNetuid)
         );
-        (bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
+        (bool success, ) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
         if (!success) revert TenexiumErrors.StakeFailed();
         
         // Get final stake amount
@@ -72,7 +72,7 @@ abstract contract PrecompileUtils is TenexiumStorage {
             alphaAmount,
             uint256(alphaNetuid)
         );
-        (bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
+        (bool success, ) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
         if (!success) revert TenexiumErrors.UnstakeFailed();
 
         // Calculate TAO received

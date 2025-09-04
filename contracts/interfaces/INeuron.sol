@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-address constant INeuron_ADDRESS = 0x0000000000000000000000000000000000000804;
-
 interface INeuron {
     /**
      * @dev Registers a neuron by calling `do_burned_registration` internally with the origin set to the ss58 mirror of the H160 address.

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-address constant IALPHA_ADDRESS = 0x0000000000000000000000000000000000000808;
-
 interface IAlpha {
     /// @dev Returns the current alpha price for a subnet.
     /// @param netuid The subnet identifier.

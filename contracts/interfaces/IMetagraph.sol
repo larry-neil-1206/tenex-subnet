@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-address constant IMetagraph_ADDRESS = 0x0000000000000000000000000000000000000802;
-
 struct AxonInfo {
   uint64 block;
   uint32 version;
