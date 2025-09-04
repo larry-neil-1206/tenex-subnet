@@ -217,19 +217,6 @@ task("deploy:upgradeable", "Deploy Tenexium Protocol with upgradeable parameters
             const implementationAddress = await hre.upgrades.erc1967.getImplementationAddress(address);
             console.log(`  📋 Implementation address: ${implementationAddress}`);
             
-            // Post-deploy configuration
-            console.log("\n⚙️  Post-deploy configuration");
-            if (process.env.PROTOCOL_SS58_HEX && 
-                process.env.PROTOCOL_SS58_HEX.startsWith("0x") && 
-                process.env.PROTOCOL_SS58_HEX.length === 66) {
-                console.log("  → Setting protocol SS58 address (bytes32)");
-                const tx = await tenexiumProtocol.updateProtocolSs58Address(process.env.PROTOCOL_SS58_HEX);
-                await tx.wait();
-                console.log("    ✅ Protocol SS58 address set");
-            } else {
-                console.log("  (no protocol SS58 address specified via env)");
-            }
-            
             // Save deployment info if requested
             if (shouldSave) {
                 const deploymentInfo: DeploymentResult = {
