@@ -137,17 +137,13 @@ abstract contract BuybackManager is
 		}
 		
 		if (totalClaimable > 0) {
-			bytes memory data = abi.encodeWithSelector(
-				STAKING_PRECOMPILE.transferStake.selector,
+			_transferStake(
 				beneficiarySs58Address,
 				protocolValidatorHotkey,
 				TENEX_NETUID,
 				TENEX_NETUID,
 				totalClaimable
 			);
-			(bool success, ) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
-			if (!success) revert TenexiumErrors.TransferFailed();
-
 			claimed = totalClaimable;
 			emit TokensClaimed(msg.sender, beneficiarySs58Address, totalClaimable);
 		}

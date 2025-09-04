@@ -81,6 +81,33 @@ abstract contract PrecompileAdapter is TenexiumStorage {
     }
 
     /**
+     * @notice Transfer staked alpha to another coldkey via staking precompile
+     * @param destinationColdkey Destination coldkey
+     * @param hotkey Validator hotkey
+     * @param originNetuid Origin subnet id
+     * @param destinationNetuid Destination subnet id
+     * @param amount Alpha amount to transfer (alpha base units)
+     */
+    function _transferStake(
+        bytes32 destinationColdkey,
+        bytes32 hotkey,
+        uint256 originNetuid,
+        uint256 destinationNetuid,
+        uint256 amount
+    ) internal {
+        bytes memory data = abi.encodeWithSelector(
+            STAKING_PRECOMPILE.transferStake.selector,
+            destinationColdkey,
+            hotkey,
+            originNetuid,
+            destinationNetuid,
+            amount
+        );
+        (bool success, ) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
+        if (!success) revert TenexiumErrors.TransferFailed();
+    }
+
+    /**
      * @notice Select a validator hotkey (prefers protocol-level hotkey, fallback highest vTrust)
      */
     function _getAlphaValidatorHotkey(uint16 alphaNetuid) internal view returns (bytes32 validatorHotkey) {
