@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-address constant ISTAKING_ADDRESS = 0x0000000000000000000000000000000000000805;
-
 interface IStaking {
     /**
      * @dev Adds a subtensor stake `amount` associated with the `hotkey`.

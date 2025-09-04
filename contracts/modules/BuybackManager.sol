@@ -145,7 +145,7 @@ abstract contract BuybackManager is
 				TENEX_NETUID,
 				totalClaimable
 			);
-			(bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
+			(bool success, ) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
 			if (!success) revert TenexiumErrors.TransferFailed();
 
 			claimed = totalClaimable;

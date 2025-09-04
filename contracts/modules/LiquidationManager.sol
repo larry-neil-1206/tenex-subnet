@@ -299,26 +299,6 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents {
         return liquidatablePositions;
     }
 
-    /**
-     * @notice Update risk assessment for a position
-     * @param user Address of position holder
-     * @param alphaNetuid Alpha subnet ID
-     */
-    function updateRiskAssessment(address user, uint16 alphaNetuid) external {
-        Position storage position = positions[user][alphaNetuid];
-        if (!position.isActive) revert TenexiumErrors.PositionNotFound(user, alphaNetuid);
-        
-        // Calculate health ratio
-        uint256 currentPrice = _getValidatedAlphaPrice(alphaNetuid);
-        uint256 positionValue = position.alphaAmount.safeMul(currentPrice) / PRECISION;
-        uint256 totalDebt = position.borrowed + position.accruedFees;
-        
-        uint256 healthRatio = RiskCalculator.calculateHealthRatio(positionValue, totalDebt);
-        bool isAtRisk = healthRatio <= liquidationThreshold;
-
-        emit RiskAssessmentUpdated(user, alphaNetuid, healthRatio, isAtRisk);
-    }
-
     // ==================== VIEW FUNCTIONS ====================
 
     /**
@@ -412,7 +392,7 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents {
             alphaAmount,
             uint256(alphaNetuid)
         );
-        (bool success, ) = ISTAKING_ADDRESS.call{gas: gasleft()}(data);
+        (bool success, ) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
         if (!success) revert TenexiumErrors.UnstakeFailed();
 
         // Calculate TAO received
