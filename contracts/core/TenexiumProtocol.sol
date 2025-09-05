@@ -439,42 +439,34 @@ contract TenexiumProtocol is
 
     // ==================== EMERGENCY FUNCTIONS ====================
 
+
     /**
      * @notice Emergency pause toggle
      */
-    function toggleEmergencyPause() external onlyOwner {
-        emergencyPause = !paused();
+    function _toggleEmergencyPause() internal {
+        bool isCurrentlyPaused = paused();
+        bool shouldBePaused = liquidityCircuitBreaker;
         
-        if (emergencyPause) {
-            _pause();
-            emit EmergencyPauseToggled(emergencyPause, msg.sender, block.number);
-        } else {
-            // Only unpause if liquidity circuit breaker is not active
-            if (!liquidityCircuitBreaker) {
+        if (shouldBePaused != isCurrentlyPaused) {
+            if (shouldBePaused) {
+                _pause();
+            } else {
                 _unpause();
-                emit EmergencyPauseToggled(emergencyPause, msg.sender, block.number);
             }
         }
+        emit EmergencyPauseToggled(liquidityCircuitBreaker, msg.sender, block.number);
     }
 
     /**
      * @notice Manually reset liquidity circuit breaker (owner only)
      * @dev Should only be used after addressing underlying liquidity/utilization issues
      */
-    function resetLiquidityCircuitBreaker() external onlyOwner {
-        liquidityCircuitBreaker = false;
-        emit EmergencyPause();
+    function resetLiquidityCircuitBreaker(bool _liquidityCircuitBreaker) external onlyOwner {
+        liquidityCircuitBreaker = _liquidityCircuitBreaker;
+        _toggleEmergencyPause();
     }
 
     // ==================== CIRCUIT BREAKER FUNCTIONS ====================
-
-    /**
-     * @notice Check circuit breaker status
-     */
-    function _checkCircuitBreaker() internal view {
-        if (emergencyPause) revert TenexiumErrors.EmergencyPaused();
-        if (liquidityCircuitBreaker) revert TenexiumErrors.LiquidityBreakerActive();
-    }
 
     /**
      * @notice Update liquidity-based circuit breaker status
@@ -485,7 +477,7 @@ contract TenexiumProtocol is
         // Check minimum liquidity threshold
         if (currentLiquidity < minLiquidityThreshold) {
             liquidityCircuitBreaker = true;
-            emit EmergencyPause();
+            _toggleEmergencyPause();
             return;
         }
     
@@ -494,13 +486,14 @@ contract TenexiumProtocol is
             uint256 utilizationRate = totalBorrowed.safeMul(PRECISION) / totalLpStakes;
             if (utilizationRate > maxUtilizationRate) {
                 liquidityCircuitBreaker = true;
-                emit EmergencyPause();
+                _toggleEmergencyPause();
                 return;
             }
         }
         
         // Circuit breaker can be disabled if conditions are met
         liquidityCircuitBreaker = false;
+        _toggleEmergencyPause();
     }
 
     // ==================== LIQUIDITY PROVIDER FUNCTIONS ====================
@@ -508,7 +501,7 @@ contract TenexiumProtocol is
     /**
      * @notice Add liquidity to the protocol
      */
-    function addLiquidity() external payable whenNotPaused lpRateLimit {
+    function addLiquidity() external payable nonReentrant lpRateLimit {
         if (msg.value == 0) revert TenexiumErrors.NoLiquidityProvided();
         _addLiquidity();
         _updateLiquidityCircuitBreaker();
@@ -518,8 +511,9 @@ contract TenexiumProtocol is
      * @notice Remove liquidity from the protocol
      * @param amount Amount of liquidity to remove (0 for all)
      */
-    function removeLiquidity(uint256 amount) external whenNotPaused lpRateLimit {
+    function removeLiquidity(uint256 amount) external whenNotPaused nonReentrant lpRateLimit {
         _removeLiquidity(amount);
+        _updateLiquidityCircuitBreaker();
     }
 
     // ==================== TRADING FUNCTIONS ====================
@@ -535,10 +529,7 @@ contract TenexiumProtocol is
         uint256 leverage,
         uint256 maxSlippage
     ) external payable whenNotPaused nonReentrant userRateLimit {
-        // Execute internal mixin logic
         _openPosition(alphaNetuid, leverage, maxSlippage);
-        
-        // Update liquidity-based circuit breaker only
         _updateLiquidityCircuitBreaker();
     }
 
@@ -552,8 +543,9 @@ contract TenexiumProtocol is
         uint16 alphaNetuid,
         uint256 amountToClose,
         uint256 maxSlippage
-    ) external whenNotPaused nonReentrant userRateLimit validPosition(msg.sender, alphaNetuid) {
+    ) external nonReentrant userRateLimit validPosition(msg.sender, alphaNetuid) {
         _closePosition(alphaNetuid, amountToClose, maxSlippage);
+        _updateLiquidityCircuitBreaker();
     }
 
     /**
@@ -568,7 +560,7 @@ contract TenexiumProtocol is
         uint16 alphaNetuid,
         string calldata justificationUrl,
         bytes32 contentHash
-    ) external whenNotPaused nonReentrant {
+    ) external nonReentrant {
         _liquidatePosition(user, alphaNetuid, justificationUrl, contentHash);
         _updateLiquidityCircuitBreaker();
     }
@@ -577,8 +569,9 @@ contract TenexiumProtocol is
      * @notice Add collateral to an existing position (TAO only)
      * @param alphaNetuid Alpha subnet ID
      */
-    function addCollateral(uint16 alphaNetuid) external payable whenNotPaused userRateLimit validPosition(msg.sender, alphaNetuid) {
+    function addCollateral(uint16 alphaNetuid) external payable nonReentrant userRateLimit validPosition(msg.sender, alphaNetuid) {
         _addCollateral(alphaNetuid);
+        _updateLiquidityCircuitBreaker();
     }
 
     // ==================== REWARD CLAIM FUNCTIONS ====================
@@ -604,7 +597,7 @@ contract TenexiumProtocol is
     /**
      * @notice Execute automated buyback using accumulated protocol fees
      */
-    function executeBuyback() external whenNotPaused {
+    function executeBuyback() external whenNotPaused nonReentrant {
         _executeBuyback();
     }
 
