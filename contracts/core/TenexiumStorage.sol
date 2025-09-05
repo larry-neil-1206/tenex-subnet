@@ -97,7 +97,6 @@ contract TenexiumStorage {
     // ==================== STATE VARIABLES ====================
 
     // Emergency controls
-    bool public emergencyPause;                      // Emergency pause flag
     bool public liquidityCircuitBreaker;             // Liquidity circuit breaker flag
 
     // Global protocol state

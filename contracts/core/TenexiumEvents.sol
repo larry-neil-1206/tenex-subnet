@@ -13,8 +13,6 @@ contract TenexiumEvents {
         uint256 version
     );
 
-    event EmergencyPause();
-
     event EmergencyPauseToggled(
         bool isPaused,
         address indexed admin,
@@ -145,28 +143,6 @@ contract TenexiumEvents {
         bytes32 contentHash
     );
 
-    event RiskAssessmentUpdated(
-        address indexed user,
-        uint16 indexed alphaNetuid,
-        uint256 healthRatio,
-        bool isAtRisk
-    );
-
-    event AutomatedLiquidationTriggered(
-        address indexed user,
-        uint16 indexed alphaNetuid,
-        uint256 liquidationAmount,
-        string justificationUrl,
-        bytes32 contentHash
-    );
-
-    event LiquidationRequestCreated(
-        bytes32 indexed requestId,
-        address indexed user,
-        uint16 indexed alphaNetuid,
-        uint256 deadline
-    );
-
     // ==================== FEE EVENTS ====================
 
     event FeesDistributed(
@@ -205,12 +181,6 @@ contract TenexiumEvents {
         uint256 amount,
         uint256 startBlock,
         uint256 durationBlocks
-    );
-
-    event VestingClaimed(
-        address indexed beneficiary,
-        uint256 amount,
-        uint256 remaining
     );
 
     event TokensClaimed(
