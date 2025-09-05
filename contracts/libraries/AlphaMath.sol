@@ -108,4 +108,4 @@ library AlphaMath {
     function priceRaoToWei(uint256 priceRaoPerAlpha) internal pure returns (uint256) {
         return raoToWei(priceRaoPerAlpha);
     }
-} 
+}

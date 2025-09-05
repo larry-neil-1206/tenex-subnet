@@ -11,11 +11,7 @@ contract DeployImplementation is Script {
         string memory rawPrivateKey = vm.envString("PRIVATE_KEY");
         string memory prefixedPrivateKey = rawPrivateKey;
 
-        if (
-            bytes(rawPrivateKey).length < 2 ||
-            bytes(rawPrivateKey)[0] != "0" ||
-            bytes(rawPrivateKey)[1] != "x"
-        ) {
+        if (bytes(rawPrivateKey).length < 2 || bytes(rawPrivateKey)[0] != "0" || bytes(rawPrivateKey)[1] != "x") {
             prefixedPrivateKey = string(abi.encodePacked("0x", rawPrivateKey));
         }
 

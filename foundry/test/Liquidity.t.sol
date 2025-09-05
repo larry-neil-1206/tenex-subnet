@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import { TenexiumProtocol } from "contracts/core/TenexiumProtocol.sol";
-import { MockAlpha, MockStaking } from "./mocks/MockContracts.sol";
+import {TenexiumProtocol} from "contracts/core/TenexiumProtocol.sol";
+import {MockAlpha, MockStaking} from "./mocks/MockContracts.sol";
 
 contract LiquidityTest is Test {
     TenexiumProtocol protocol;
@@ -50,7 +50,7 @@ contract LiquidityTest is Test {
 
     function testAddRemoveLiquidity() public {
         vm.startPrank(lp);
-        protocol.addLiquidity{ value: 200 ether }();
+        protocol.addLiquidity{value: 200 ether}();
         (uint256 stake,,) = protocol.getLpInfo(lp);
         assertEq(stake, 200 ether);
 

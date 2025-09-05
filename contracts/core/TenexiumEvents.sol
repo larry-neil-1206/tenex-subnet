@@ -8,99 +8,47 @@ pragma solidity ^0.8.19;
 contract TenexiumEvents {
     // ==================== PROTOCOL CONFIG & GOVERNANCE EVENTS ====================
 
-    event ContractUpgraded(
-        address indexed newImplementation,
-        uint256 version
-    );
+    event ContractUpgraded(address indexed newImplementation, uint256 version);
 
-    event EmergencyPauseToggled(
-        bool isPaused,
-        address indexed admin,
-        uint256 blockNumber
-    );
+    event EmergencyPauseToggled(bool isPaused, address indexed admin, uint256 blockNumber);
 
-    event RiskParametersUpdated(
-        uint256 maxLeverage,
-        uint256 liquidationThreshold
-    );
+    event RiskParametersUpdated(uint256 maxLeverage, uint256 liquidationThreshold);
 
     event LiquidityGuardrailsUpdated(
-        uint256 minLiquidityThreshold,
-        uint256 maxUtilizationRate,
-        uint256 liquidityBufferRatio
+        uint256 minLiquidityThreshold, uint256 maxUtilizationRate, uint256 liquidityBufferRatio
     );
 
-    event ActionCooldownsUpdated(
-        uint256 userCooldownBlocks,
-        uint256 lpCooldownBlocks
-    );
+    event ActionCooldownsUpdated(uint256 userCooldownBlocks, uint256 lpCooldownBlocks);
 
     event BuybackParametersUpdated(
-        uint256 buybackRate,
-        uint256 buybackIntervalBlocks,
-        uint256 buybackExecutionThreshold
+        uint256 buybackRate, uint256 buybackIntervalBlocks, uint256 buybackExecutionThreshold
     );
 
-    event VestingParametersUpdated(
-        uint256 vestingDurationBlocks,
-        uint256 cliffDurationBlocks
-    );
+    event VestingParametersUpdated(uint256 vestingDurationBlocks, uint256 cliffDurationBlocks);
 
-    event FeesUpdated(
-        uint256 tradingFeeRate,
-        uint256 borrowingFeeRate,
-        uint256 liquidationFeeRate
-    );
+    event FeesUpdated(uint256 tradingFeeRate, uint256 borrowingFeeRate, uint256 liquidationFeeRate);
 
     event FeeDistributionsUpdated();
 
     event TierParametersUpdated();
 
-    event ProtocolValidatorHotkeyUpdated(
-        bytes32 indexed oldHotkey,
-        bytes32 indexed newHotkey,
-        address indexed admin
-    );
+    event ProtocolValidatorHotkeyUpdated(bytes32 indexed oldHotkey, bytes32 indexed newHotkey, address indexed admin);
 
     event ProtocolSs58AddressUpdated(
-        bytes32 indexed oldSs58Address,
-        bytes32 indexed newSs58Address,
-        address indexed admin
+        bytes32 indexed oldSs58Address, bytes32 indexed newSs58Address, address indexed admin
     );
 
-    event TreasuryUpdated(
-        address indexed oldTreasury,
-        address indexed newTreasury,
-        address indexed admin
-    );
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury, address indexed admin);
 
-    event UtilizationRateUpdated(
-        uint16 indexed alphaNetuid,
-        uint256 utilizationRate,
-        uint256 borrowingRate
-    );
+    event UtilizationRateUpdated(uint16 indexed alphaNetuid, uint256 utilizationRate, uint256 borrowingRate);
 
-    event AlphaPairAdded(
-        uint16 indexed netuid,
-        uint256 maxLeverage,
-        uint256 liquidationThreshold
-    );
+    event AlphaPairAdded(uint16 indexed netuid, uint256 maxLeverage, uint256 liquidationThreshold);
 
     // ==================== LIQUIDITY PROVIDER EVENTS ====================
 
-    event LiquidityAdded(
-        address indexed provider,
-        uint256 amount,
-        uint256 shares,
-        uint256 totalStakes
-    );
+    event LiquidityAdded(address indexed provider, uint256 amount, uint256 shares, uint256 totalStakes);
 
-    event LiquidityRemoved(
-        address indexed provider,
-        uint256 amount,
-        uint256 shares,
-        uint256 totalStakes
-    );
+    event LiquidityRemoved(address indexed provider, uint256 amount, uint256 shares, uint256 totalStakes);
 
     // ==================== POSITION EVENTS ====================
 
@@ -124,11 +72,7 @@ contract TenexiumEvents {
         uint256 fees
     );
 
-    event CollateralAdded(
-        address indexed user,
-        uint16 indexed alphaNetuid,
-        uint256 amount
-    );
+    event CollateralAdded(address indexed user, uint16 indexed alphaNetuid, uint256 amount);
 
     // ==================== RISK MANAGEMENT & LIQUIDATION EVENTS ====================
 
@@ -145,47 +89,21 @@ contract TenexiumEvents {
 
     // ==================== FEE EVENTS ====================
 
-    event FeesDistributed(
-        uint256 lpAmount,
-        uint256 liquidatorAmount,
-        uint256 epoch
-    );
+    event FeesDistributed(uint256 lpAmount, uint256 liquidatorAmount, uint256 epoch);
 
-    event LpFeeRewardsClaimed(
-        address indexed lp,
-        uint256 amount
-    );
+    event LpFeeRewardsClaimed(address indexed lp, uint256 amount);
 
-    event LiquidatorFeeRewardsClaimed(
-        address indexed liquidator,
-        uint256 amount
-    );
+    event LiquidatorFeeRewardsClaimed(address indexed liquidator, uint256 amount);
 
-    event LiquidatorScoreUpdated(
-        address indexed liquidator,
-        uint256 newScore,
-        uint256 totalScore
-    );
+    event LiquidatorScoreUpdated(address indexed liquidator, uint256 newScore, uint256 totalScore);
 
     // ==================== BUYBACK & VESTING EVENTS ====================
 
-    event BuybackExecuted(
-        uint256 taoAmount,
-        uint256 alphaReceived,
-        uint256 blockNumber,
-        uint256 slippage
-    );
+    event BuybackExecuted(uint256 taoAmount, uint256 alphaReceived, uint256 blockNumber, uint256 slippage);
 
     event VestingScheduleCreated(
-        address indexed beneficiary,
-        uint256 amount,
-        uint256 startBlock,
-        uint256 durationBlocks
+        address indexed beneficiary, uint256 amount, uint256 startBlock, uint256 durationBlocks
     );
 
-    event TokensClaimed(
-        address indexed beneficiary,
-        bytes32 indexed ss58Address,
-        uint256 amount
-    );
+    event TokensClaimed(address indexed beneficiary, bytes32 indexed ss58Address, uint256 amount);
 }

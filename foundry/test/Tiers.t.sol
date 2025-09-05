@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import { TenexiumProtocol } from "contracts/core/TenexiumProtocol.sol";
-import { MockAlpha, MockStaking } from "./mocks/MockContracts.sol";
+import {TenexiumProtocol} from "contracts/core/TenexiumProtocol.sol";
+import {MockAlpha, MockStaking} from "./mocks/MockContracts.sol";
 
 contract TiersTest is Test {
     TenexiumProtocol protocol;
@@ -48,7 +48,7 @@ contract TiersTest is Test {
 
     function testOpenPositionWithinTierLimits() public {
         vm.startPrank(user);
-        protocol.openPosition{ value: 1000 ether }(67, 2e18, 500);
+        protocol.openPosition{value: 1000 ether}(67, 2e18, 500);
         vm.stopPrank();
     }
 }

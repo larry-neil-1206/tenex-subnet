@@ -13,38 +13,39 @@ import "../libraries/TenexiumErrors.sol";
  */
 abstract contract FeeManager is TenexiumStorage, TenexiumEvents {
     using AlphaMath for uint256;
+
     uint256 internal constant ACC_PRECISION = 1e12;
-    
+
     // ==================== FEE DISTRIBUTION FUNCTIONS ====================
-    
+
     /**
      * @notice Distribute trading fees according to trading shares
      * @param feeAmount Total trading fee amount to distribute
      */
     function _distributeTradingFees(uint256 feeAmount) internal {
         if (feeAmount == 0) revert TenexiumErrors.NoFees();
-        
+
         // Calculate distribution amounts using trading fee shares
         uint256 lpFeeAmount = feeAmount.safeMul(tradingFeeLpShare) / PRECISION;
         uint256 liquidatorFeeAmount = feeAmount.safeMul(tradingFeeLiquidatorShare) / PRECISION;
-        
+
         // Accumulate per-share for LPs
         if (lpFeeAmount > 0 && totalLpStakes > 0) {
             accLpFeesPerShare += (lpFeeAmount * ACC_PRECISION) / totalLpStakes;
             totalLpFees += lpFeeAmount;
         }
-        
+
         // Accumulate per-score for liquidators
         if (liquidatorFeeAmount > 0 && totalLiquidatorScore > 0) {
             accLiquidatorFeesPerScore += (liquidatorFeeAmount * ACC_PRECISION) / totalLiquidatorScore;
             totalLiquidatorFees += liquidatorFeeAmount;
         }
-        
+
         // Update distribution tracking
         totalFeesDistributed += feeAmount;
         lastFeeDistributionBlock = block.number;
         currentEpoch++;
-        
+
         emit FeesDistributed(lpFeeAmount, liquidatorFeeAmount, currentEpoch);
     }
 
@@ -54,10 +55,10 @@ abstract contract FeeManager is TenexiumStorage, TenexiumEvents {
      */
     function _distributeBorrowingFees(uint256 feeAmount) internal {
         if (feeAmount == 0) revert TenexiumErrors.NoFees();
-        
+
         uint256 lpFeeAmount = feeAmount.safeMul(borrowingFeeLpShare) / PRECISION;
         uint256 liquidatorFeeAmount = feeAmount.safeMul(borrowingFeeLiquidatorShare) / PRECISION;
-        
+
         if (lpFeeAmount > 0 && totalLpStakes > 0) {
             accLpFeesPerShare += (lpFeeAmount * ACC_PRECISION) / totalLpStakes;
             totalLpFees += lpFeeAmount;
@@ -69,7 +70,7 @@ abstract contract FeeManager is TenexiumStorage, TenexiumEvents {
         totalFeesDistributed += feeAmount;
         lastFeeDistributionBlock = block.number;
         currentEpoch++;
-        
+
         emit FeesDistributed(lpFeeAmount, liquidatorFeeAmount, currentEpoch);
     }
 
@@ -100,7 +101,7 @@ abstract contract FeeManager is TenexiumStorage, TenexiumEvents {
         rewards = lpFeeRewards[lp];
         if (rewards == 0) revert TenexiumErrors.NoRewards();
         lpFeeRewards[lp] = 0;
-        (bool success, ) = payable(lp).call{value: rewards}("");
+        (bool success,) = payable(lp).call{value: rewards}("");
         if (!success) revert TenexiumErrors.TransferFailed();
         emit LpFeeRewardsClaimed(lp, rewards);
     }
@@ -148,28 +149,22 @@ abstract contract FeeManager is TenexiumStorage, TenexiumEvents {
         rewards = liquidatorFeeRewards[liquidator];
         if (rewards == 0) revert TenexiumErrors.NoRewards();
         liquidatorFeeRewards[liquidator] = 0;
-        (bool success, ) = payable(liquidator).call{value: rewards}("");
+        (bool success,) = payable(liquidator).call{value: rewards}("");
         if (!success) revert TenexiumErrors.TransferFailed();
         emit LiquidatorFeeRewardsClaimed(liquidator, rewards);
     }
-    
+
     // ==================== FEE CALCULATION FUNCTIONS ====================
-    
+
     /**
      * @notice Calculate discounted fee based on user's tier
      * @param user User address
      * @param originalFee Original fee amount
      * @return discountedFee Fee after applying tier discount
      */
-    function _calculateDiscountedFee(
-        address user,
-        uint256 originalFee
-    ) internal view returns (uint256 discountedFee) {
-        uint256 balance = STAKING_PRECOMPILE.getStake(
-            protocolValidatorHotkey,
-            bytes32(uint256(uint160(user))),
-            TENEX_NETUID
-        );
+    function _calculateDiscountedFee(address user, uint256 originalFee) internal view returns (uint256 discountedFee) {
+        uint256 balance =
+            STAKING_PRECOMPILE.getStake(protocolValidatorHotkey, bytes32(uint256(uint160(user))), TENEX_NETUID);
         uint256 discount;
         if (balance >= tier5Threshold) discount = tier5FeeDiscount;
         else if (balance >= tier4Threshold) discount = tier4FeeDiscount;
@@ -177,30 +172,32 @@ abstract contract FeeManager is TenexiumStorage, TenexiumEvents {
         else if (balance >= tier2Threshold) discount = tier2FeeDiscount;
         else if (balance >= tier1Threshold) discount = tier1FeeDiscount;
         else discount = tier0FeeDiscount;
-        
+
         discountedFee = originalFee.safeMul(PRECISION - discount) / PRECISION;
-        
+
         return discountedFee;
     }
-    
+
     /**
      * @notice Calculate borrowing fees accrued over time
      * @param user User address
      * @param alphaNetuid Alpha subnet ID
      * @return accruedFees Total accrued fees
      */
-    function _calculateBorrowFeesSinceLastUpdate(
-        address user,
-        uint16 alphaNetuid
-    ) internal view returns (uint256 accruedFees) {
+    function _calculateBorrowFeesSinceLastUpdate(address user, uint16 alphaNetuid)
+        internal
+        view
+        returns (uint256 accruedFees)
+    {
         Position storage position = positions[user][alphaNetuid];
         if (!position.isActive) return 0;
-        
+
         uint256 blocksElapsed = block.number - position.lastUpdateBlock;
         AlphaPair storage pair = alphaPairs[alphaNetuid];
-        uint256 utilization = pair.totalCollateral == 0 ? 0 : pair.totalBorrowed.safeMul(PRECISION) / pair.totalCollateral;
+        uint256 utilization =
+            pair.totalCollateral == 0 ? 0 : pair.totalBorrowed.safeMul(PRECISION) / pair.totalCollateral;
         uint256 ratePer360 = RiskCalculator.dynamicBorrowRatePer360(utilization);
-        
+
         return position.borrowed.safeMul(ratePer360).safeMul(blocksElapsed) / (PRECISION * 360);
     }
 }
