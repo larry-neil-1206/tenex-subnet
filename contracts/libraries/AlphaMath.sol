@@ -11,11 +11,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 library AlphaMath {
     using Math for uint256;
 
-    // Constants for precision (9 decimals for ratios/percentages)
-    uint256 private constant PRECISION = 1e9;
-
-    // TAO denominations
-    uint256 private constant WEI_PER_TAO = 1e18;
+    // RAO denominations
     uint256 private constant WEI_PER_RAO = 1e9;
 
     // Errors
