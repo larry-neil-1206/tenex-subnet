@@ -443,18 +443,18 @@ contract TenexiumProtocol is
      * @notice Emergency pause toggle
      */
     function toggleEmergencyPause() external onlyOwner {
-        emergencyPause = !emergencyPause;
+        emergencyPause = !paused();
         
         if (emergencyPause) {
             _pause();
+            emit EmergencyPauseToggled(emergencyPause, msg.sender, block.number);
         } else {
             // Only unpause if liquidity circuit breaker is not active
             if (!liquidityCircuitBreaker) {
                 _unpause();
+                emit EmergencyPauseToggled(emergencyPause, msg.sender, block.number);
             }
         }
-        
-        emit EmergencyPauseToggled(emergencyPause, msg.sender, block.number);
     }
 
     /**
