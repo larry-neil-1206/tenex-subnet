@@ -10,7 +10,7 @@ import "./AlphaMath.sol";
 library RiskCalculator {
     using AlphaMath for uint256;
 
-    uint256 private constant LIQUIDATION_DEADLINE_BLOCKS = 360; 
+    uint256 private constant LIQUIDATION_DEADLINE_BLOCKS = 360;
     uint256 private constant PRECISION = 1e9;
 
     struct RiskAssessment {
@@ -38,10 +38,10 @@ library RiskCalculator {
     function dynamicBorrowRatePer360(uint256 utilization) internal pure returns (uint256 ratePer360) {
         // Baseline aligned to spec: 0.005% per 360 blocks at zero utilization.
         // Kink at 80%; steeper slope beyond kink.
-        uint256 baseRate = 50_000;      // 0.005% per 360 blocks (0.00005 * 1e9)
-        uint256 kink = 800_000_000;     // 80% of PRECISION (0.8 * 1e9)
-        uint256 slope1 = 150_000;       // 0.015% per 360 blocks below kink (0.00015 * 1e9)
-        uint256 slope2 = 800_000;       // 0.08% per 360 blocks above kink (0.0008 * 1e9)
+        uint256 baseRate = 50_000; // 0.005% per 360 blocks (0.00005 * 1e9)
+        uint256 kink = 800_000_000; // 80% of PRECISION (0.8 * 1e9)
+        uint256 slope1 = 150_000; // 0.015% per 360 blocks below kink (0.00015 * 1e9)
+        uint256 slope2 = 800_000; // 0.08% per 360 blocks above kink (0.0008 * 1e9)
         if (utilization <= kink) {
             return baseRate + (utilization * slope1) / kink;
         } else {
@@ -56,44 +56,38 @@ library RiskCalculator {
      * @param liquidationThreshold Liquidation threshold (e.g., 120%)
      * @return assessment Complete risk assessment
      */
-    function assessPositionRisk(
-        PositionData memory position,
-        uint256 currentPrice,
-        uint256 liquidationThreshold
-    ) internal pure returns (RiskAssessment memory assessment) {
+    function assessPositionRisk(PositionData memory position, uint256 currentPrice, uint256 liquidationThreshold)
+        internal
+        pure
+        returns (RiskAssessment memory assessment)
+    {
         if (!position.isActive) {
             return assessment; // Returns default struct with all zeros
         }
-        
+
         // Calculate current position value (wei)
         uint256 currentValue = position.alphaAmount.safeMul(currentPrice);
         uint256 totalDebt = position.borrowed + position.accruedFees;
-        
+
         // Calculate health ratio
         assessment.healthRatio = calculateHealthRatio(currentValue, totalDebt);
-        
+
         // Calculate liquidation price
         assessment.liquidationPrice = calculateLiquidationPrice(
-            position.borrowed,
-            position.accruedFees,
-            position.alphaAmount,
-            liquidationThreshold
+            position.borrowed, position.accruedFees, position.alphaAmount, liquidationThreshold
         );
-        
+
         // Determine risk status
         assessment.isAtRisk = assessment.healthRatio <= liquidationThreshold;
         // Under the simplified single-threshold model, treat immediate liquidation the same as threshold breach
         assessment.requiresImmediateLiquidation = assessment.healthRatio <= liquidationThreshold;
-        
+
         // Calculate time to liquidation
         if (assessment.isAtRisk && currentPrice > 0) {
-            assessment.timeToLiquidation = _estimateBlocksToLiquidation(
-                currentPrice,
-                assessment.liquidationPrice,
-                position.lastUpdateBlock
-            );
+            assessment.timeToLiquidation =
+                _estimateBlocksToLiquidation(currentPrice, assessment.liquidationPrice, position.lastUpdateBlock);
         }
-        
+
         return assessment;
     }
 
@@ -103,10 +97,11 @@ library RiskCalculator {
      * @param totalDebt Total debt including fees
      * @return healthRatio Health ratio (collateral value / debt)
      */
-    function calculateHealthRatio(
-        uint256 positionValue,
-        uint256 totalDebt
-    ) internal pure returns (uint256 healthRatio) {
+    function calculateHealthRatio(uint256 positionValue, uint256 totalDebt)
+        internal
+        pure
+        returns (uint256 healthRatio)
+    {
         if (totalDebt == 0) return type(uint256).max;
         return positionValue.safeMul(PRECISION) / totalDebt;
     }
@@ -126,7 +121,7 @@ library RiskCalculator {
         uint256 liquidationThreshold
     ) internal pure returns (uint256 liquidationPrice) {
         if (alphaAmount == 0) return 0;
-        
+
         uint256 totalDebt = borrowed + accruedFees;
         return totalDebt.safeMul(liquidationThreshold) / alphaAmount;
     }
@@ -138,18 +133,16 @@ library RiskCalculator {
      * @param liquidationThreshold Liquidation threshold
      * @return isLiquidatable Whether position can be liquidated
      */
-    function isPositionLiquidatable(
-        PositionData memory position,
-        uint256 currentPrice,
-        uint256 liquidationThreshold
-    ) internal pure returns (bool isLiquidatable) {
+    function isPositionLiquidatable(PositionData memory position, uint256 currentPrice, uint256 liquidationThreshold)
+        internal
+        pure
+        returns (bool isLiquidatable)
+    {
         if (!position.isActive) return false;
-        
-        uint256 healthRatio = calculateHealthRatio(
-            position.alphaAmount.safeMul(currentPrice),
-            position.borrowed + position.accruedFees
-        );
-        
+
+        uint256 healthRatio =
+            calculateHealthRatio(position.alphaAmount.safeMul(currentPrice), position.borrowed + position.accruedFees);
+
         return healthRatio <= liquidationThreshold;
     }
 
@@ -160,11 +153,11 @@ library RiskCalculator {
      * @param maxLeverage Maximum allowed leverage
      * @return maxPosition Maximum position size
      */
-    function calculateMaxPosition(
-        uint256 collateral,
-        uint256 alphaPrice,
-        uint256 maxLeverage
-    ) internal pure returns (uint256 maxPosition) {
+    function calculateMaxPosition(uint256 collateral, uint256 alphaPrice, uint256 maxLeverage)
+        internal
+        pure
+        returns (uint256 maxPosition)
+    {
         uint256 maxPositionValueWei = collateral.safeMul(maxLeverage) / PRECISION;
         return maxPositionValueWei / alphaPrice;
     }
@@ -176,11 +169,11 @@ library RiskCalculator {
      * @param leverage Desired leverage
      * @return requiredCollateral Required collateral amount
      */
-    function calculateRequiredCollateral(
-        uint256 positionSize,
-        uint256 alphaPrice,
-        uint256 leverage
-    ) internal pure returns (uint256 requiredCollateral) {
+    function calculateRequiredCollateral(uint256 positionSize, uint256 alphaPrice, uint256 leverage)
+        internal
+        pure
+        returns (uint256 requiredCollateral)
+    {
         uint256 positionValueWei = positionSize.safeMul(alphaPrice);
         return positionValueWei.safeMul(PRECISION) / leverage;
     }
@@ -192,11 +185,11 @@ library RiskCalculator {
      * @param blocksPassed Number of blocks passed
      * @return accruedFees Fees accrued
      */
-    function calculateBorrowingFees(
-        uint256 borrowed,
-        uint256 borrowingRate,
-        uint256 blocksPassed
-    ) internal pure returns (uint256 accruedFees) {
+    function calculateBorrowingFees(uint256 borrowed, uint256 borrowingRate, uint256 blocksPassed)
+        internal
+        pure
+        returns (uint256 accruedFees)
+    {
         return borrowed.safeMul(borrowingRate).safeMul(blocksPassed) / PRECISION;
     }
 
@@ -216,4 +209,4 @@ library RiskCalculator {
         }
         return LIQUIDATION_DEADLINE_BLOCKS;
     }
-} 
+}

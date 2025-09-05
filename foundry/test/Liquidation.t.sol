@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import { TenexiumProtocol } from "contracts/core/TenexiumProtocol.sol";
-import { MockAlpha, MockStaking } from "./mocks/MockContracts.sol";
+import {TenexiumProtocol} from "contracts/core/TenexiumProtocol.sol";
+import {MockAlpha, MockStaking} from "./mocks/MockContracts.sol";
 
 contract LiquidationTest is Test {
     TenexiumProtocol protocol;
@@ -49,12 +49,12 @@ contract LiquidationTest is Test {
         vm.etch(address(0x0000000000000000000000000000000000000805), address(staking).code);
 
         // Add liquidity to the pool properly
-        protocol.addLiquidity{ value: 500 ether }();
+        protocol.addLiquidity{value: 500 ether}();
     }
 
     function testLiquidationFlow() public {
         vm.startPrank(trader);
-        protocol.openPosition{ value: 20 ether }(67, 2e18, 500);
+        protocol.openPosition{value: 20 ether}(67, 2e18, 500);
         vm.stopPrank();
 
         // Advance blocks to accrue borrow costs so position health drops

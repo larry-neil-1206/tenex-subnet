@@ -71,13 +71,7 @@ interface INeuron {
      * @param port The port number of the Prometheus information (uint16).
      * @param ipType The type of IP address (uint8).
      */
-    function servePrometheus(
-        uint16 netuid,
-        uint32 version,
-        uint128 ip,
-        uint16 port,
-        uint8 ipType
-    ) external payable;
+    function servePrometheus(uint16 netuid, uint32 version, uint128 ip, uint16 port, uint8 ipType) external payable;
 
     /**
      * @dev Sets the weights for a neuron.
@@ -87,12 +81,9 @@ interface INeuron {
      * @param weights The weights to set (uint16[]).
      * @param versionKey The version key for the weights (uint64).
      */
-    function setWeights(
-        uint16 netuid,
-        uint16[] memory dests,
-        uint16[] memory weights,
-        uint64 versionKey
-    ) external payable;
+    function setWeights(uint16 netuid, uint16[] memory dests, uint16[] memory weights, uint64 versionKey)
+        external
+        payable;
 
     /**
      * @dev Commits the weights for a neuron.

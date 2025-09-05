@@ -16,11 +16,7 @@ contract Upgrade is Script {
         string memory rawPrivateKey = vm.envString("PRIVATE_KEY");
         string memory prefixedPrivateKey = rawPrivateKey;
 
-        if (
-            bytes(rawPrivateKey).length < 2 ||
-            bytes(rawPrivateKey)[0] != "0" ||
-            bytes(rawPrivateKey)[1] != "x"
-        ) {
+        if (bytes(rawPrivateKey).length < 2 || bytes(rawPrivateKey)[0] != "0" || bytes(rawPrivateKey)[1] != "x") {
             prefixedPrivateKey = string(abi.encodePacked("0x", rawPrivateKey));
         }
 
@@ -28,13 +24,8 @@ contract Upgrade is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // 🚀 Perform upgrade via `upgradeToAndCall`
-        (bool success, ) = proxyAddress.call(
-            abi.encodeWithSignature(
-                "upgradeToAndCall(address,bytes)",
-                address(newImpl),
-                ""
-            )
-        );
+        (bool success,) =
+            proxyAddress.call(abi.encodeWithSignature("upgradeToAndCall(address,bytes)", address(newImpl), ""));
         require(success, "upgradeToAndCall failed");
 
         console.log("Proxy successfully upgraded to new implementation.");

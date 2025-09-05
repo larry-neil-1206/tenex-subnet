@@ -15,3 +15,6 @@ evm_version = "paris"
 fs_permissions = [
   { access = "read", path = "./" }
 ]
+
+[lint]
+exclude_lints = ["unaliased-plain-import", "mixed-case-variable", "mixed-case-function"]

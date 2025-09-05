@@ -26,44 +26,38 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
      * @param contentHash Hash of justification content
      * @dev Uses single threshold approach - liquidate immediately when threshold hit
      */
-    function _liquidatePosition(
-        address user,
-        uint16 alphaNetuid,
-        string calldata justificationUrl,
-        bytes32 contentHash
-    ) internal {
+    function _liquidatePosition(address user, uint16 alphaNetuid, string calldata justificationUrl, bytes32 contentHash)
+        internal
+    {
         Position storage position = positions[user][alphaNetuid];
         if (!position.isActive) revert TenexiumErrors.PositionInactive();
         if (position.alphaAmount == 0) revert TenexiumErrors.NoAlpha();
-        
+
         // Verify liquidation is justified using single threshold
         if (!_isPositionLiquidatable(user, alphaNetuid)) revert TenexiumErrors.NotLiquidatable();
-        
+
         // Calculate liquidation details using accurate simulation
         uint256 alphaAmountRao = position.alphaAmount.safeMul(PRECISION);
-        uint256 simulatedTaoValueRao = ALPHA_PRECOMPILE.simSwapAlphaForTao(
-            alphaNetuid,
-            uint64(alphaAmountRao)
-        );
+        uint256 simulatedTaoValueRao = ALPHA_PRECOMPILE.simSwapAlphaForTao(alphaNetuid, uint64(alphaAmountRao));
         if (simulatedTaoValueRao == 0) revert TenexiumErrors.InvalidValue();
         uint256 simulatedTaoValue = AlphaMath.raoToWei(simulatedTaoValueRao);
-        
+
         // Calculate total debt (borrowed + accrued fees)
         uint256 accruedFees = _calculateTotalAccruedFees(user, alphaNetuid);
         uint256 totalDebt = position.borrowed.safeAdd(accruedFees);
-        
+
         // Unstake alpha to get TAO using the validator hotkey used at open (fallback to protocolValidatorHotkey)
         bytes32 vHotkey = position.validatorHotkey == bytes32(0) ? protocolValidatorHotkey : position.validatorHotkey;
         uint256 taoReceived = _unstakeAlphaForTao(vHotkey, position.alphaAmount, alphaNetuid);
         if (taoReceived == 0) revert TenexiumErrors.UnstakeFailed();
-        
+
         // Payment waterfall: Debt > Liquidation fee (split) > User
         uint256 remaining = taoReceived;
-        
+
         // 1. Repay debt first
         uint256 debtRepayment = remaining < totalDebt ? remaining : totalDebt;
         remaining = remaining.safeSub(debtRepayment);
-        
+
         // 2. Distribute liquidation fee on actual proceeds (post-debt)
         uint256 liquidationFeeAmount = remaining.safeMul(liquidationFeeRate) / PRECISION;
         if (liquidationFeeAmount > 0 && remaining > 0) {
@@ -71,7 +65,7 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
             // Liquidator gets 100% of the liquidator share directly
             uint256 liquidatorFeeShare = feeToDistribute.safeMul(liquidationFeeLiquidatorShare) / PRECISION;
             if (liquidatorFeeShare > 0) {
-                (bool success, ) = msg.sender.call{value: liquidatorFeeShare}("");
+                (bool success,) = msg.sender.call{value: liquidatorFeeShare}("");
                 if (!success) revert TenexiumErrors.LiquiFeeTransferFailed();
             }
             // Protocol share of liquidation fees (→ buybacks)
@@ -83,13 +77,13 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
             }
             remaining = remaining.safeSub(feeToDistribute);
         }
-        
+
         // 3. Return any remaining collateral to user
         if (remaining > 0) {
-            (bool success, ) = user.call{value: remaining}("");
+            (bool success,) = user.call{value: remaining}("");
             if (!success) revert TenexiumErrors.CollateralReturnFailed();
         }
-        
+
         // Update global statistics before clearing position fields
         totalBorrowed = totalBorrowed.safeSub(position.borrowed);
         totalCollateral = totalCollateral.safeSub(position.collateral);
@@ -100,10 +94,10 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
         position.collateral = 0;
         position.accruedFees = 0;
         position.isActive = false;
-        
+
         // Calculate liquidator bonus (share of liquidation fee)
         uint256 liquidatorFeeShareTotal = liquidationFeeAmount.safeMul(liquidationFeeLiquidatorShare) / PRECISION;
-        
+
         emit PositionLiquidated(
             user,
             msg.sender,
@@ -124,29 +118,22 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
      * @param alphaNetuid Alpha subnet ID
      * @return liquidatable True if position can be liquidated
      */
-    function _isPositionLiquidatable(address user, uint16 alphaNetuid) 
-        internal 
-        view 
-        returns (bool liquidatable) 
-    {
+    function _isPositionLiquidatable(address user, uint16 alphaNetuid) internal view returns (bool liquidatable) {
         Position storage position = positions[user][alphaNetuid];
         if (!position.isActive || position.alphaAmount == 0) return false;
-        
+
         // Get current value using accurate simulation
         uint256 simulatedAlphaRao2 = position.alphaAmount.safeMul(PRECISION);
-        uint256 simulatedTaoValueRao2 = ALPHA_PRECOMPILE.simSwapAlphaForTao(
-            alphaNetuid,
-            uint64(simulatedAlphaRao2)
-        );
-        
+        uint256 simulatedTaoValueRao2 = ALPHA_PRECOMPILE.simSwapAlphaForTao(alphaNetuid, uint64(simulatedAlphaRao2));
+
         if (simulatedTaoValueRao2 == 0) return true;
-        
+
         // Calculate total debt including accrued fees
         uint256 accruedFees = _calculateTotalAccruedFees(user, alphaNetuid);
         uint256 totalDebt = position.borrowed.safeAdd(accruedFees);
-        
+
         if (totalDebt == 0) return false; // No debt means not liquidatable
-        
+
         // Single threshold check: currentValue / totalDebt < threshold
         uint256 simulatedTaoWei2 = AlphaMath.raoToWei(simulatedTaoValueRao2);
         uint256 healthRatio = simulatedTaoWei2.safeMul(PRECISION) / totalDebt;
@@ -159,31 +146,24 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
      * @param alphaNetuid Alpha subnet ID
      * @return healthRatio Current health ratio (PRECISION = 100%)
      */
-    function _getPositionHealthRatio(address user, uint16 alphaNetuid) 
-        internal 
-        view 
-        returns (uint256 healthRatio) 
-    {
+    function _getPositionHealthRatio(address user, uint16 alphaNetuid) internal view returns (uint256 healthRatio) {
         Position storage position = positions[user][alphaNetuid];
         if (!position.isActive || position.alphaAmount == 0) return 0;
-        
+
         // Get current value using accurate simulation
         uint256 simulatedAlphaRao = position.alphaAmount.safeMul(PRECISION);
         if (simulatedAlphaRao == 0) return 0;
-        uint256 simulatedTaoValueRao = ALPHA_PRECOMPILE.simSwapAlphaForTao(
-            alphaNetuid,
-            uint64(simulatedAlphaRao)
-        );
-        
+        uint256 simulatedTaoValueRao = ALPHA_PRECOMPILE.simSwapAlphaForTao(alphaNetuid, uint64(simulatedAlphaRao));
+
         if (simulatedTaoValueRao == 0) return 0;
         uint256 simulatedTaoValue = AlphaMath.raoToWei(simulatedTaoValueRao);
-        
+
         // Calculate total debt including accrued fees
         uint256 accruedFees = _calculateTotalAccruedFees(user, alphaNetuid);
         uint256 totalDebt = position.borrowed.safeAdd(accruedFees);
-        
+
         if (totalDebt == 0) return type(uint256).max; // Infinite health ratio
-        
+
         return simulatedTaoValue.safeMul(PRECISION) / totalDebt;
     }
 
@@ -193,28 +173,29 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
      * @param alphaNetuids Array of Alpha subnet IDs
      * @return liquidatablePositions Array of liquidatable position indices
      */
-    function _batchCheckLiquidatable(
-        address[] memory users,
-        uint16[] memory alphaNetuids
-    ) internal view returns (uint256[] memory liquidatablePositions) {
+    function _batchCheckLiquidatable(address[] memory users, uint16[] memory alphaNetuids)
+        internal
+        view
+        returns (uint256[] memory liquidatablePositions)
+    {
         if (users.length != alphaNetuids.length) revert TenexiumErrors.ArrayLengthMismatch();
-        
+
         uint256[] memory tempResults = new uint256[](users.length);
         uint256 count = 0;
-        
+
         for (uint256 i = 0; i < users.length; i++) {
             if (_isPositionLiquidatable(users[i], alphaNetuids[i])) {
                 tempResults[count] = i;
                 count++;
             }
         }
-        
+
         // Create result array with exact size
         liquidatablePositions = new uint256[](count);
         for (uint256 i = 0; i < count; i++) {
             liquidatablePositions[i] = tempResults[i];
         }
-        
+
         return liquidatablePositions;
     }
 
@@ -228,15 +209,14 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
      * @return rewardsEarned Total rewards earned
      * @return currentScore Current liquidation score
      */
-    function getLiquidatorStats(address liquidator) external view returns (
-        uint256 totalLiquidations,
-        uint256 totalValue,
-        uint256 rewardsEarned,
-        uint256 currentScore
-    ) {
+    function getLiquidatorStats(address liquidator)
+        external
+        view
+        returns (uint256 totalLiquidations, uint256 totalValue, uint256 rewardsEarned, uint256 currentScore)
+    {
         currentScore = liquidatorScores[liquidator];
         rewardsEarned = liquidatorFeeRewards[liquidator];
-        
+
         // Simplified calculations
         totalLiquidations = currentScore;
         totalValue = currentScore * 1e18;
@@ -252,7 +232,7 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
     }
 
     // ==================== INTERNAL HELPER FUNCTIONS ====================
-    
+
     /**
      * @notice Get validated alpha price with safety checks
      * @param alphaNetuid Alpha subnet ID
@@ -270,29 +250,22 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
      * @param alphaNetuid Alpha subnet ID
      * @return accruedFees Total accrued fees
      */
-    function _calculateTotalAccruedFees(address user, uint16 alphaNetuid) 
-        internal 
-        view 
-        returns (uint256 accruedFees) 
-    {
+    function _calculateTotalAccruedFees(address user, uint16 alphaNetuid) internal view returns (uint256 accruedFees) {
         Position storage position = positions[user][alphaNetuid];
         if (!position.isActive) return 0;
-        
+
         uint256 blocksElapsed = block.number - position.lastUpdateBlock;
         AlphaPair storage pair = alphaPairs[alphaNetuid];
-        uint256 utilization = pair.totalCollateral == 0 ? 0 : pair.totalBorrowed.safeMul(PRECISION) / pair.totalCollateral;
+        uint256 utilization =
+            pair.totalCollateral == 0 ? 0 : pair.totalBorrowed.safeMul(PRECISION) / pair.totalCollateral;
         uint256 ratePer360 = RiskCalculator.dynamicBorrowRatePer360(utilization);
-        uint256 borrowingFeeAmount = position.borrowed
-            .safeMul(ratePer360)
-            .safeMul(blocksElapsed) / (PRECISION * 360);
-        
+        uint256 borrowingFeeAmount = position.borrowed.safeMul(ratePer360).safeMul(blocksElapsed) / (PRECISION * 360);
+
         return position.accruedFees + borrowingFeeAmount;
     }
 
-
-
     // ==================== PUBLIC THIN WRAPPERS ====================
-    
+
     function isPositionLiquidatable(address user, uint16 alphaNetuid) public view returns (bool) {
         return _isPositionLiquidatable(user, alphaNetuid);
     }
@@ -308,4 +281,4 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
     {
         return _batchCheckLiquidatable(users, alphaNetuids);
     }
-} 
+}

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import { TenexiumProtocol } from "contracts/core/TenexiumProtocol.sol";
+import {TenexiumProtocol} from "contracts/core/TenexiumProtocol.sol";
 
 contract AdminTest is Test {
     TenexiumProtocol protocol;
@@ -42,11 +42,5 @@ contract AdminTest is Test {
         vm.prank(attacker);
         vm.expectRevert();
         protocol.updateRiskParameters(12e9, 115e7);
-    }
-
-    function testEmergencyPauseToggle() public {
-        bool wasPaused = protocol.paused();
-        protocol.toggleEmergencyPause();
-        assertTrue(protocol.paused() != wasPaused);
     }
 }

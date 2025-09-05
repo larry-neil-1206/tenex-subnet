@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import { TenexiumProtocol } from "contracts/core/TenexiumProtocol.sol";
-import { MockAlpha, MockStaking } from "./mocks/MockContracts.sol";
+import {TenexiumProtocol} from "contracts/core/TenexiumProtocol.sol";
+import {MockAlpha, MockStaking} from "./mocks/MockContracts.sol";
 
 contract BuybackTest is Test {
     TenexiumProtocol protocol;
@@ -43,7 +43,7 @@ contract BuybackTest is Test {
         vm.etch(address(0x0000000000000000000000000000000000000805), address(staking).code);
 
         // Add liquidity to the pool properly
-        protocol.addLiquidity{ value: 100 ether }();
+        protocol.addLiquidity{value: 100 ether}();
     }
 
     function testBuybackConditions() public {

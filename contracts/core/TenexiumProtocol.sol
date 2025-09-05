@@ -23,7 +23,7 @@ import "../libraries/TenexiumErrors.sol";
  * @notice Main protocol contract that orchestrates all modules for leveraged alpha trading
  * @dev This contract serves as the entry point and coordinator for all protocol operations
  */
-contract TenexiumProtocol is 
+contract TenexiumProtocol is
     Initializable,
     PausableUpgradeable,
     OwnableUpgradeable,
@@ -103,7 +103,7 @@ contract TenexiumProtocol is
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
-        
+
         // 1) Core leverage and liquidation threshold
         maxLeverage = _maxLeverage;
         liquidationThreshold = _liquidationThreshold;
@@ -113,7 +113,7 @@ contract TenexiumProtocol is
         maxUtilizationRate = _maxUtilizationRate;
         liquidityBufferRatio = _liquidityBufferRatio;
         liquidityCircuitBreaker = false;
-        
+
         // 3) Action cooldowns
         userActionCooldownBlocks = _userCooldownBlocks;
         lpActionCooldownBlocks = _lpCooldownBlocks;
@@ -134,9 +134,10 @@ contract TenexiumProtocol is
 
         // 7) Fee distributions
         if (
-            _tradingFeeDistribution[0] + _tradingFeeDistribution[1] + _tradingFeeDistribution[2] != PRECISION ||
-            _borrowingFeeDistribution[0] + _borrowingFeeDistribution[1] + _borrowingFeeDistribution[2] != PRECISION ||
-            _liquidationFeeDistribution[0] + _liquidationFeeDistribution[1] + _liquidationFeeDistribution[2] != PRECISION
+            _tradingFeeDistribution[0] + _tradingFeeDistribution[1] + _tradingFeeDistribution[2] != PRECISION
+                || _borrowingFeeDistribution[0] + _borrowingFeeDistribution[1] + _borrowingFeeDistribution[2] != PRECISION
+                || _liquidationFeeDistribution[0] + _liquidationFeeDistribution[1] + _liquidationFeeDistribution[2]
+                    != PRECISION
         ) revert TenexiumErrors.DistributionInvalid();
 
         tradingFeeLpShare = _tradingFeeDistribution[0];
@@ -186,13 +187,12 @@ contract TenexiumProtocol is
      * @param _maxLeverage New maximum leverage
      * @param _liquidationThreshold New liquidation threshold
      */
-    function updateRiskParameters(
-        uint256 _maxLeverage,
-        uint256 _liquidationThreshold
-    ) external onlyOwner {
+    function updateRiskParameters(uint256 _maxLeverage, uint256 _liquidationThreshold) external onlyOwner {
         if (_maxLeverage > 20 * PRECISION) revert TenexiumErrors.LeverageTooHigh(_maxLeverage);
-        if (_liquidationThreshold < (105 * PRECISION) / 100) revert TenexiumErrors.ThresholdTooLow(_liquidationThreshold);
-        
+        if (_liquidationThreshold < (105 * PRECISION) / 100) {
+            revert TenexiumErrors.ThresholdTooLow(_liquidationThreshold);
+        }
+
         maxLeverage = _maxLeverage;
         liquidationThreshold = _liquidationThreshold;
 
@@ -211,13 +211,15 @@ contract TenexiumProtocol is
         uint256 _liquidityBufferRatio
     ) external onlyOwner {
         if (_minLiquidityThreshold < 100e18) revert TenexiumErrors.ThresholdTooLow(_minLiquidityThreshold);
-        if (_maxUtilizationRate > (95 * PRECISION) / 100) revert TenexiumErrors.UtilizationExceeded(_maxUtilizationRate);
+        if (_maxUtilizationRate > (95 * PRECISION) / 100) {
+            revert TenexiumErrors.UtilizationExceeded(_maxUtilizationRate);
+        }
         if (_liquidityBufferRatio > (50 * PRECISION) / 100) revert TenexiumErrors.FeeTooHigh(_liquidityBufferRatio);
-        
+
         minLiquidityThreshold = _minLiquidityThreshold;
         maxUtilizationRate = _maxUtilizationRate;
         liquidityBufferRatio = _liquidityBufferRatio;
-        
+
         _updateLiquidityCircuitBreaker();
 
         emit LiquidityGuardrailsUpdated(_minLiquidityThreshold, _maxUtilizationRate, _liquidityBufferRatio);
@@ -228,13 +230,10 @@ contract TenexiumProtocol is
      * @param _userCooldownBlocks New user cooldown in blocks
      * @param _lpCooldownBlocks New LP cooldown in blocks
      */
-    function updateActionCooldowns(
-        uint256 _userCooldownBlocks,
-        uint256 _lpCooldownBlocks
-    ) external onlyOwner {
+    function updateActionCooldowns(uint256 _userCooldownBlocks, uint256 _lpCooldownBlocks) external onlyOwner {
         if (_userCooldownBlocks > 7_200) revert TenexiumErrors.UserCooldownTooLarge(_userCooldownBlocks);
         if (_lpCooldownBlocks > 7_200) revert TenexiumErrors.LpCooldownTooLarge(_lpCooldownBlocks);
-        
+
         userActionCooldownBlocks = _userCooldownBlocks;
         lpActionCooldownBlocks = _lpCooldownBlocks;
 
@@ -254,7 +253,7 @@ contract TenexiumProtocol is
     ) external onlyOwner {
         if (_buybackRate > PRECISION) revert TenexiumErrors.PercentageTooHigh(_buybackRate);
         if (_buybackIntervalBlocks < 360) revert TenexiumErrors.IntervalTooShort(_buybackIntervalBlocks);
-        
+
         buybackRate = _buybackRate;
         buybackIntervalBlocks = _buybackIntervalBlocks;
         buybackExecutionThreshold = _buybackExecutionThreshold;
@@ -267,13 +266,10 @@ contract TenexiumProtocol is
      * @param _vestingDurationBlocks Total vesting duration for bought-back alpha, in blocks
      * @param _cliffDurationBlocks Cliff duration before vesting starts releasing, in blocks
      */
-    function updateVestingParameters(
-        uint256 _vestingDurationBlocks,
-        uint256 _cliffDurationBlocks
-    ) external onlyOwner {
+    function updateVestingParameters(uint256 _vestingDurationBlocks, uint256 _cliffDurationBlocks) external onlyOwner {
         if (_vestingDurationBlocks < 216000) revert TenexiumErrors.DurationTooShort(_vestingDurationBlocks);
         if (_cliffDurationBlocks > _vestingDurationBlocks) revert TenexiumErrors.CliffTooLong(_cliffDurationBlocks);
-        
+
         vestingDurationBlocks = _vestingDurationBlocks;
         cliffDurationBlocks = _cliffDurationBlocks;
 
@@ -286,15 +282,14 @@ contract TenexiumProtocol is
      * @param _borrowingFeeRate New borrowing fee rate per 360 blocks
      * @param _liquidationFeeRate New liquidation fee rate
      */
-    function updateFeeParameters(
-        uint256 _tradingFeeRate,
-        uint256 _borrowingFeeRate,
-        uint256 _liquidationFeeRate
-    ) external onlyOwner {
+    function updateFeeParameters(uint256 _tradingFeeRate, uint256 _borrowingFeeRate, uint256 _liquidationFeeRate)
+        external
+        onlyOwner
+    {
         if (_tradingFeeRate > PRECISION / 100) revert TenexiumErrors.FeeTooHigh(_tradingFeeRate);
         if (_borrowingFeeRate > (1 * PRECISION) / 1000) revert TenexiumErrors.FeeTooHigh(_borrowingFeeRate);
         if (_liquidationFeeRate > (10 * PRECISION) / 100) revert TenexiumErrors.FeeTooHigh(_liquidationFeeRate);
-        
+
         tradingFeeRate = _tradingFeeRate;
         borrowingFeeRate = _borrowingFeeRate;
         liquidationFeeRate = _liquidationFeeRate;
@@ -315,7 +310,9 @@ contract TenexiumProtocol is
     ) external onlyOwner {
         if (_trading[0] + _trading[1] + _trading[2] != PRECISION) revert TenexiumErrors.DistributionInvalid();
         if (_borrowing[0] + _borrowing[1] + _borrowing[2] != PRECISION) revert TenexiumErrors.DistributionInvalid();
-        if (_liquidation[0] + _liquidation[1] + _liquidation[2] != PRECISION) revert TenexiumErrors.DistributionInvalid();
+        if (_liquidation[0] + _liquidation[1] + _liquidation[2] != PRECISION) {
+            revert TenexiumErrors.DistributionInvalid();
+        }
         tradingFeeLpShare = _trading[0];
         tradingFeeLiquidatorShare = _trading[1];
         tradingFeeProtocolShare = _trading[2];
@@ -413,13 +410,10 @@ contract TenexiumProtocol is
      * @param maxLeverageForPair Maximum leverage for this pair
      * @dev Uses global liquidation threshold for all pairs
      */
-    function addAlphaPair(
-        uint16 alphaNetuid,
-        uint256 maxLeverageForPair
-    ) external onlyOwner {
+    function addAlphaPair(uint16 alphaNetuid, uint256 maxLeverageForPair) external onlyOwner {
         if (alphaPairs[alphaNetuid].isActive) revert TenexiumErrors.PairExists(alphaNetuid);
         if (maxLeverageForPair > maxLeverage) revert TenexiumErrors.LeverageTooHigh(maxLeverageForPair);
-        
+
         AlphaPair storage pair = alphaPairs[alphaNetuid];
         pair.netuid = alphaNetuid;
         pair.maxLeverage = maxLeverageForPair;
@@ -427,18 +421,13 @@ contract TenexiumProtocol is
         pair.borrowingRate = borrowingFeeRate;
         pair.isActive = true;
         pair.isPaused = false;
-        
+
         supportedAlphaPairs.push(alphaNetuid);
-        
-        emit AlphaPairAdded(
-            alphaNetuid,
-            maxLeverageForPair,
-            liquidationThreshold
-        );
+
+        emit AlphaPairAdded(alphaNetuid, maxLeverageForPair, liquidationThreshold);
     }
 
     // ==================== EMERGENCY FUNCTIONS ====================
-
 
     /**
      * @notice Emergency pause toggle
@@ -446,7 +435,7 @@ contract TenexiumProtocol is
     function _toggleEmergencyPause() internal {
         bool isCurrentlyPaused = paused();
         bool shouldBePaused = liquidityCircuitBreaker;
-        
+
         if (shouldBePaused != isCurrentlyPaused) {
             if (shouldBePaused) {
                 _pause();
@@ -473,14 +462,14 @@ contract TenexiumProtocol is
      */
     function _updateLiquidityCircuitBreaker() internal {
         uint256 currentLiquidity = _getAvailableLiquidity();
-        
+
         // Check minimum liquidity threshold
         if (currentLiquidity < minLiquidityThreshold) {
             liquidityCircuitBreaker = true;
             _toggleEmergencyPause();
             return;
         }
-    
+
         // Check utilization rate
         if (totalBorrowed > 0 && totalLpStakes > 0) {
             uint256 utilizationRate = totalBorrowed.safeMul(PRECISION) / totalLpStakes;
@@ -490,7 +479,7 @@ contract TenexiumProtocol is
                 return;
             }
         }
-        
+
         // Circuit breaker can be disabled if conditions are met
         liquidityCircuitBreaker = false;
         _toggleEmergencyPause();
@@ -524,11 +513,13 @@ contract TenexiumProtocol is
      * @param leverage Desired leverage
      * @param maxSlippage Maximum acceptable slippage (in basis points)
      */
-    function openPosition(
-        uint16 alphaNetuid,
-        uint256 leverage,
-        uint256 maxSlippage
-    ) external payable whenNotPaused nonReentrant userRateLimit {
+    function openPosition(uint16 alphaNetuid, uint256 leverage, uint256 maxSlippage)
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        userRateLimit
+    {
         _openPosition(alphaNetuid, leverage, maxSlippage);
         _updateLiquidityCircuitBreaker();
     }
@@ -539,11 +530,12 @@ contract TenexiumProtocol is
      * @param amountToClose Amount of alpha to close (0 for full close)
      * @param maxSlippage Maximum acceptable slippage
      */
-    function closePosition(
-        uint16 alphaNetuid,
-        uint256 amountToClose,
-        uint256 maxSlippage
-    ) external nonReentrant userRateLimit validPosition(msg.sender, alphaNetuid) {
+    function closePosition(uint16 alphaNetuid, uint256 amountToClose, uint256 maxSlippage)
+        external
+        nonReentrant
+        userRateLimit
+        validPosition(msg.sender, alphaNetuid)
+    {
         _closePosition(alphaNetuid, amountToClose, maxSlippage);
         _updateLiquidityCircuitBreaker();
     }
@@ -555,12 +547,10 @@ contract TenexiumProtocol is
      * @param justificationUrl Off-chain evidence URL
      * @param contentHash Hash of justification content
      */
-    function liquidatePosition(
-        address user,
-        uint16 alphaNetuid,
-        string calldata justificationUrl,
-        bytes32 contentHash
-    ) external nonReentrant {
+    function liquidatePosition(address user, uint16 alphaNetuid, string calldata justificationUrl, bytes32 contentHash)
+        external
+        nonReentrant
+    {
         _liquidatePosition(user, alphaNetuid, justificationUrl, contentHash);
         _updateLiquidityCircuitBreaker();
     }
@@ -569,7 +559,13 @@ contract TenexiumProtocol is
      * @notice Add collateral to an existing position (TAO only)
      * @param alphaNetuid Alpha subnet ID
      */
-    function addCollateral(uint16 alphaNetuid) external payable nonReentrant userRateLimit validPosition(msg.sender, alphaNetuid) {
+    function addCollateral(uint16 alphaNetuid)
+        external
+        payable
+        nonReentrant
+        userRateLimit
+        validPosition(msg.sender, alphaNetuid)
+    {
         _addCollateral(alphaNetuid);
         _updateLiquidityCircuitBreaker();
     }
@@ -606,7 +602,12 @@ contract TenexiumProtocol is
      * @param ss58Address SS58 address to receive the tokens
      * @return claimed Amount of alpha base units transferred
      */
-    function claimVestedBuybackTokens(bytes32 ss58Address) external whenNotPaused nonReentrant returns (uint256 claimed) {
+    function claimVestedBuybackTokens(bytes32 ss58Address)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (uint256 claimed)
+    {
         if (ss58Address == bytes32(0)) revert TenexiumErrors.InvalidValue();
         claimed = _claimVestedTokens(ss58Address);
     }
@@ -617,19 +618,19 @@ contract TenexiumProtocol is
     function withdrawProtocolFees() external onlyOwner nonReentrant {
         uint256 totalRewards = protocolFees;
         if (totalRewards == 0) revert TenexiumErrors.NoFees();
-        
+
         // Reserve 90% for buyback pool
         uint256 buybackAmount = (totalRewards * 90) / 100;
         uint256 withdrawAmount = totalRewards - buybackAmount;
-        
+
         // Fund buyback pool
         buybackPool += buybackAmount;
-        
+
         // Reset protocol fees
         protocolFees = 0;
-        
+
         // Transfer remaining fees to owner
-        (bool success, ) = payable(owner()).call{ value: withdrawAmount }("");
+        (bool success,) = payable(owner()).call{value: withdrawAmount}("");
         if (!success) revert TenexiumErrors.TransferFailed();
     }
 
@@ -638,15 +639,19 @@ contract TenexiumProtocol is
     /**
      * @notice Get comprehensive protocol statistics
      */
-    function getProtocolStats() external view returns (
-        uint256 totalCollateralAmount,
-        uint256 totalBorrowedAmount,
-        uint256 totalVolumeAmount,
-        uint256 totalTradesCount,
-        uint256 protocolFeesAmount,
-        uint256 totalLpStakesAmount,
-        uint256 activePairsCount
-    ) {
+    function getProtocolStats()
+        external
+        view
+        returns (
+            uint256 totalCollateralAmount,
+            uint256 totalBorrowedAmount,
+            uint256 totalVolumeAmount,
+            uint256 totalTradesCount,
+            uint256 protocolFeesAmount,
+            uint256 totalLpStakesAmount,
+            uint256 activePairsCount
+        )
+    {
         totalCollateralAmount = totalCollateral;
         totalBorrowedAmount = totalBorrowed;
         totalVolumeAmount = totalVolume;
@@ -660,12 +665,16 @@ contract TenexiumProtocol is
      * @notice Get user's overall statistics
      * @param user User address
      */
-    function getUserStats(address user) external view returns (
-        uint256 totalCollateralUser,
-        uint256 totalBorrowedUser,
-        uint256 totalVolumeUser,
-        bool isLiquidityProvider
-    ) {
+    function getUserStats(address user)
+        external
+        view
+        returns (
+            uint256 totalCollateralUser,
+            uint256 totalBorrowedUser,
+            uint256 totalVolumeUser,
+            bool isLiquidityProvider
+        )
+    {
         totalCollateralUser = userCollateral[user];
         totalBorrowedUser = userTotalBorrowed[user];
         totalVolumeUser = userTotalVolume[user];

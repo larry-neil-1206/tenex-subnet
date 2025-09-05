@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import { TenexiumProtocol } from "contracts/core/TenexiumProtocol.sol";
-import { MockAlpha, MockStaking } from "./mocks/MockContracts.sol";
+import {TenexiumProtocol} from "contracts/core/TenexiumProtocol.sol";
+import {MockAlpha, MockStaking} from "./mocks/MockContracts.sol";
 
 contract PositionTest is Test {
     TenexiumProtocol protocol;
@@ -19,20 +19,21 @@ contract PositionTest is Test {
         protocol = new TenexiumProtocol();
         // Initialize
         protocol.initialize(
-            10e9,           // maxLeverage 10x
-            110e7,          // liquidation threshold ~110%
-            100 ether,      // minLiquidity
-            90e7,           // maxUtil
-            20e7,           // buffer
-            0, 0,           // cooldowns
-            50e7,           // buyback rate 5%
-            7200,           // buyback interval blocks
-            1 ether,        // buyback execution threshold
-            2_628_000,      // vesting duration blocks (~1y)
-            648_000,        // cliff blocks (~3m)
-            3e6,            // trading fee 0.3%
-            50_000,         // borrowing baseline
-            20e7,           // liquidation fee 2%
+            10e9, // maxLeverage 10x
+            110e7, // liquidation threshold ~110%
+            100 ether, // minLiquidity
+            90e7, // maxUtil
+            20e7, // buffer
+            0,
+            0, // cooldowns
+            50e7, // buyback rate 5%
+            7200, // buyback interval blocks
+            1 ether, // buyback execution threshold
+            2_628_000, // vesting duration blocks (~1y)
+            648_000, // cliff blocks (~3m)
+            3e6, // trading fee 0.3%
+            50_000, // borrowing baseline
+            20e7, // liquidation fee 2%
             [uint256(30e7), 0, uint256(70e7)],
             [uint256(35e7), 0, uint256(65e7)],
             [uint256(0), uint256(40e7), uint256(60e7)],
@@ -49,13 +50,13 @@ contract PositionTest is Test {
         vm.etch(address(0x0000000000000000000000000000000000000805), address(staking).code);
 
         // Add liquidity to the pool properly
-        protocol.addLiquidity{ value: 200 ether }();
+        protocol.addLiquidity{value: 200 ether}();
     }
 
     function testOpenClose2x() public {
         vm.startPrank(user);
         // Add liquidity as protocol already holds TAO, just open position
-        protocol.openPosition{ value: 10 ether }(67, 2e18, 500);
+        protocol.openPosition{value: 10 ether}(67, 2e18, 500);
         TenexiumProtocol.Position memory position = protocol.getUserPosition(user, 67);
         assertTrue(position.isActive);
         assertGt(position.alphaAmount, 0);
