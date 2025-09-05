@@ -7,7 +7,7 @@ async function main() {
     // Connect to the Subtensor EVM testnet
     const provider = new ethers.JsonRpcProvider("https://test.chain.opentensor.ai");
     const signer = new ethers.Wallet(process.env.ETH_PRIVATE_KEY!, provider);
-    const TenexiumProtocolContractAddress = "0xC1C82B13C22952ad55cf586bfE93a7b919960412";
+    const TenexiumProtocolContractAddress = "0x40325E3A28247cA79207c0C75a878444bF4f7991";
 
     const TenexiumProtocol = await ethers.getContractAt("TenexiumProtocol", TenexiumProtocolContractAddress, signer);
     
