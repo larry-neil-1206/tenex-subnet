@@ -17,21 +17,19 @@ abstract contract PrecompileAdapter is TenexiumStorage {
      * @param validatorHotkey Validator hotkey
      * @param taoAmount TAO amount to stake (wei)
      * @param alphaNetuid Alpha subnet ID
-     * @return alphaReceived Alpha tokens received (actual stake amount, in alpha base units)
+     * @return alphaReceived Alpha tokens received (in alpha base units)
      */
     function _stakeTaoForAlpha(bytes32 validatorHotkey, uint256 taoAmount, uint16 alphaNetuid)
         internal
         returns (uint256 alphaReceived)
     {
-        // Snapshot initial stake under our protocol coldkey mapping
         uint256 initialStake = STAKING_PRECOMPILE.getStake(validatorHotkey, protocolSs58Address, uint256(alphaNetuid));
 
-        // Convert wei -> rao for precompile arg and send value with the call
         uint256 amountRao = taoAmount.weiToRao();
         bytes memory data = abi.encodeWithSelector(
             STAKING_PRECOMPILE.addStake.selector, validatorHotkey, amountRao, uint256(alphaNetuid)
         );
-        (bool success,) = address(STAKING_PRECOMPILE).call{value: taoAmount, gas: gasleft()}(data);
+        (bool success,) = address(STAKING_PRECOMPILE).call{gas: gasleft()}(data);
         if (!success) revert TenexiumErrors.StakeFailed();
 
         uint256 finalStake = STAKING_PRECOMPILE.getStake(validatorHotkey, protocolSs58Address, uint256(alphaNetuid));
