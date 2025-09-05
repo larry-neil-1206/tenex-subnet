@@ -16,14 +16,11 @@ library TenexiumErrors {
     error ThresholdTooLow(uint256 thresholdScaled);
     error UserCooldownTooLarge(uint256 blocks);
     error LpCooldownTooLarge(uint256 blocks);
-    error LiquidityBreakerActive();
-    error EmergencyPaused();
 
     // Liquidity / LP
     error NoLiquidityProvided();
     error NotLiquidityProvider();
     error NoFees();
-    error NoFundingProvided();
     error InvalidWithdrawalAmount();
     error WithdrawalTriggersCircuit();
     error UtilizationExceeded(uint256 utilizationScaled);
@@ -65,8 +62,6 @@ library TenexiumErrors {
     error DurationTooShort(uint256 blocks);
     error CliffTooLong(uint256 blocks);
     error NoVestingSchedules();
-    error ScheduleOOB(address beneficiary, uint256 scheduleId);
-    error AlreadyRevoked();
     error PercentageTooHigh(uint256 rateScaled);
     error IntervalTooShort(uint256 blocks);
     error BuybackConditionsNotMet();
