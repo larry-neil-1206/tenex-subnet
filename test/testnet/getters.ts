@@ -199,11 +199,9 @@ async function main() {
         console.log("\n🚨 EMERGENCY STATE:");
         console.log("-".repeat(40));
         
-        const emergencyPause = await TenexiumProtocol.emergencyPause();
         const liquidityCircuitBreaker = await TenexiumProtocol.liquidityCircuitBreaker();
         const paused = await TenexiumProtocol.paused();
         
-        console.log("Emergency Pause:", emergencyPause);
         console.log("Liquidity Circuit Breaker:", liquidityCircuitBreaker);
         console.log("Paused:", paused);
 
