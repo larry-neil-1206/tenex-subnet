@@ -1,11 +1,11 @@
 {
   "network": "testnet",
   "deployer": "0xD17863aa942F5e0C611ABE6E1Ba2256147E71e89",
-  "timestamp": "2025-09-04T17:33:14.396Z",
+  "timestamp": "2025-09-05T15:34:15.017Z",
   "tenexiumProtocol": {
-    "proxy": "0xC1C82B13C22952ad55cf586bfE93a7b919960412",
-    "implementation": "0x7de8b18aa31138Bf383404ec81F5d05a38E3dCfB",
-    "address": "0xC1C82B13C22952ad55cf586bfE93a7b919960412"
+    "proxy": "0x40325E3A28247cA79207c0C75a878444bF4f7991",
+    "implementation": "0x80c1AAC2A51dAf4e275a8cDeD0A21c57049fb02a",
+    "address": "0x40325E3A28247cA79207c0C75a878444bF4f7991"
   },
-  "lastUpdated": "2025-09-04T17:33:14.396Z"
+  "lastUpdated": "2025-09-05T15:34:15.018Z"
 }
