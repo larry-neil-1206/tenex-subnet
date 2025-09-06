@@ -23,7 +23,6 @@ library TenexiumErrors {
     error NoFees();
     error LpMinDeposit();
     error InvalidWithdrawalAmount();
-    error WithdrawalTriggersCircuit();
     error UtilizationExceeded(uint256 utilizationScaled);
     error InsufficientContractBalance(uint256 haveWei, uint256 needWei);
     error UserCooldownActive(uint256 remainingBlocks);
