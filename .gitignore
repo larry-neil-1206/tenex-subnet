@@ -19,3 +19,7 @@ ignition/deployments/chain-31337
 # Foundry files
 /out
 /cache_forge
+
+# Python caches/artifacts
+__pycache__/
+.pytest_cache/
