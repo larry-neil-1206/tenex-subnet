@@ -125,11 +125,8 @@ abstract contract PositionManager is FeeManager, PrecompileAdapter {
         if (alphaToClose > position.alphaAmount) revert TenexiumErrors.InvalidValue();
 
         // Use simulation to get expected TAO amount from unstaking alpha
-        // simSwap expects alpha in RAO units; convert alpha tokens -> RAO using PRECISION (1e9)
-        uint256 alphaToCloseRao = alphaToClose.safeMul(PRECISION);
-        // simSwap returns TAO in RAO; convert to wei for fee/return math
         uint256 expectedTaoAmount =
-            AlphaMath.raoToWei(ALPHA_PRECOMPILE.simSwapAlphaForTao(alphaNetuid, uint64(alphaToCloseRao)));
+            AlphaMath.raoToWei(ALPHA_PRECOMPILE.simSwapAlphaForTao(alphaNetuid, uint64(alphaToClose)));
         if (expectedTaoAmount == 0) revert TenexiumErrors.UnstakeSimInvalid();
 
         // Calculate minimum acceptable TAO with slippage tolerance

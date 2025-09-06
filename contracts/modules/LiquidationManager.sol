@@ -37,8 +37,7 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
         if (!_isPositionLiquidatable(user, alphaNetuid)) revert TenexiumErrors.NotLiquidatable();
 
         // Calculate liquidation details using accurate simulation
-        uint256 alphaAmountRao = position.alphaAmount.safeMul(PRECISION);
-        uint256 simulatedTaoValueRao = ALPHA_PRECOMPILE.simSwapAlphaForTao(alphaNetuid, uint64(alphaAmountRao));
+        uint256 simulatedTaoValueRao = ALPHA_PRECOMPILE.simSwapAlphaForTao(alphaNetuid, uint64(position.alphaAmount));
         if (simulatedTaoValueRao == 0) revert TenexiumErrors.InvalidValue();
         uint256 simulatedTaoValue = AlphaMath.raoToWei(simulatedTaoValueRao);
 
@@ -123,8 +122,7 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
         if (!position.isActive || position.alphaAmount == 0) return false;
 
         // Get current value using accurate simulation
-        uint256 simulatedAlphaRao2 = position.alphaAmount.safeMul(PRECISION);
-        uint256 simulatedTaoValueRao2 = ALPHA_PRECOMPILE.simSwapAlphaForTao(alphaNetuid, uint64(simulatedAlphaRao2));
+        uint256 simulatedTaoValueRao2 = ALPHA_PRECOMPILE.simSwapAlphaForTao(alphaNetuid, uint64(position.alphaAmount));
 
         if (simulatedTaoValueRao2 == 0) return true;
 
@@ -151,9 +149,8 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
         if (!position.isActive || position.alphaAmount == 0) return 0;
 
         // Get current value using accurate simulation
-        uint256 simulatedAlphaRao = position.alphaAmount.safeMul(PRECISION);
-        if (simulatedAlphaRao == 0) return 0;
-        uint256 simulatedTaoValueRao = ALPHA_PRECOMPILE.simSwapAlphaForTao(alphaNetuid, uint64(simulatedAlphaRao));
+        if (position.alphaAmount == 0) return 0;
+        uint256 simulatedTaoValueRao = ALPHA_PRECOMPILE.simSwapAlphaForTao(alphaNetuid, uint64(position.alphaAmount));
 
         if (simulatedTaoValueRao == 0) return 0;
         uint256 simulatedTaoValue = AlphaMath.raoToWei(simulatedTaoValueRao);
