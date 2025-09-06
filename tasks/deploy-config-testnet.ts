@@ -10,8 +10,8 @@ export interface DeployConfig {
     minLiquidityThreshold: string;   // 100 TAO
     maxUtilizationRate: string;      // 90% (PRECISION=1e9)
     liquidityBufferRatio: string;    // 20% (PRECISION=1e9)
-    userCooldownBlocks: string;      // 10 blocks
-    lpCooldownBlocks: string;        // 10 blocks
+    userCooldownBlocks: string;      // 0 blocks
+    lpCooldownBlocks: string;        // 0 blocks
     
     // Buyback economics
     buybackExecutionThreshold: string; // min balance to execute buyback (wei)
