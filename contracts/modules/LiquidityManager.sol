@@ -215,14 +215,6 @@ abstract contract LiquidityManager is TenexiumStorage, TenexiumEvents {
     // ==================== INTERNAL FUNCTIONS ====================
 
     /**
-     * @notice Get available liquidity in the pool
-     * @return availableLiquidity Amount of TAO available for borrowing
-     */
-    function _getAvailableLiquidity() internal view virtual returns (uint256 availableLiquidity) {
-        return totalLpStakes > totalBorrowed ? totalLpStakes - totalBorrowed : 0;
-    }
-
-    /**
      * @notice Update LP fee rewards
      * @param lp LP address
      * @dev This function is implemented in FeeManager
