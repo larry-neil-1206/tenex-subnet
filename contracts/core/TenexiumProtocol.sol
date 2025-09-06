@@ -461,10 +461,8 @@ contract TenexiumProtocol is
      * @notice Update liquidity-based circuit breaker status
      */
     function _updateLiquidityCircuitBreaker() internal {
-        uint256 currentLiquidity = _getAvailableLiquidity();
-
         // Check minimum liquidity threshold
-        if (currentLiquidity < minLiquidityThreshold) {
+        if (totalLpStakes < minLiquidityThreshold) {
             liquidityCircuitBreaker = true;
             _toggleEmergencyPause();
             return;

@@ -21,7 +21,7 @@ abstract contract LiquidityManager is TenexiumStorage, TenexiumEvents {
      * @dev Users deposit TAO to become liquidity providers
      */
     function _addLiquidity() internal {
-        if (msg.value == 0) revert TenexiumErrors.NoLiquidityProvided();
+        if (msg.value < 1e17) revert TenexiumErrors.LpMinDeposit();
 
         LiquidityProvider storage lp = liquidityProviders[msg.sender];
         // Settle pending rewards before changing shares
@@ -65,12 +65,6 @@ abstract contract LiquidityManager is TenexiumStorage, TenexiumEvents {
         }
 
         if (withdrawAmount == 0 || withdrawAmount > lp.stake) revert TenexiumErrors.InvalidWithdrawalAmount();
-
-        // Check if withdrawal would trigger liquidity circuit breaker
-        uint256 availableLiquidity = _getAvailableLiquidity();
-        uint256 newAvailableLiquidity = availableLiquidity > withdrawAmount ? availableLiquidity - withdrawAmount : 0;
-
-        if (newAvailableLiquidity < minLiquidityThreshold) revert TenexiumErrors.WithdrawalTriggersCircuit();
 
         // Calculate utilization rate after withdrawal using LP liquidity only
         uint256 newTotalLp = totalLpStakes - withdrawAmount;
@@ -225,14 +219,6 @@ abstract contract LiquidityManager is TenexiumStorage, TenexiumEvents {
     }
 
     // ==================== INTERNAL FUNCTIONS ====================
-
-    /**
-     * @notice Get available liquidity in the pool
-     * @return availableLiquidity Amount of TAO available for borrowing
-     */
-    function _getAvailableLiquidity() internal view virtual returns (uint256 availableLiquidity) {
-        return totalLpStakes > totalBorrowed ? totalLpStakes - totalBorrowed : 0;
-    }
 
     /**
      * @notice Update LP fee rewards
