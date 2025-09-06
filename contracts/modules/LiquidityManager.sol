@@ -21,7 +21,7 @@ abstract contract LiquidityManager is TenexiumStorage, TenexiumEvents {
      * @dev Users deposit TAO to become liquidity providers
      */
     function _addLiquidity() internal {
-        if (msg.value == 0) revert TenexiumErrors.NoLiquidityProvided();
+        if (msg.value < 1e17) revert TenexiumErrors.LpMinDeposit();
 
         LiquidityProvider storage lp = liquidityProviders[msg.sender];
         // Settle pending rewards before changing shares

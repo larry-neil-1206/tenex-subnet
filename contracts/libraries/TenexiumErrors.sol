@@ -21,6 +21,7 @@ library TenexiumErrors {
     error NoLiquidityProvided();
     error NotLiquidityProvider();
     error NoFees();
+    error LpMinDeposit();
     error InvalidWithdrawalAmount();
     error WithdrawalTriggersCircuit();
     error UtilizationExceeded(uint256 utilizationScaled);
