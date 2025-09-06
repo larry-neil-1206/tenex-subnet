@@ -7,6 +7,7 @@
     "test": "npx hardhat test test/local/TenexiumProtocol.test.ts",
     "test-getters": "npx hardhat run test/testnet/getters.ts",
     "test-setters": "npx hardhat run test/testnet/setters.ts",
+    "test-liquidity": "npx hardhat run test/testnet/liquidity.ts",
     "build": "npx hardhat compile",
     "deploy:testnet": "npx hardhat deploy:new_proxy --save --network testnet",
     "deploy:testnet:implementation": "npx hardhat deploy:implementation --save --network testnet",
