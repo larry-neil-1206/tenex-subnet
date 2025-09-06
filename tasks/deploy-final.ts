@@ -36,13 +36,29 @@ const utils = {
         fs.writeFileSync(filePath, JSON.stringify(updatedData, null, 2));
         console.log(`  📁 Deployment info saved to ${filePath}`);
     },
+    getProxyAddress(networkName: string): string {
+        const deploymentsDir = path.join(__dirname, "..", "deployments");
+        const filePath = path.join(deploymentsDir, `${networkName}.json`);
+        const existingData = fs.existsSync(filePath) 
+            ? JSON.parse(fs.readFileSync(filePath, "utf8"))
+            : {};
+        return existingData.tenexiumProtocol.proxy || "";
+    },
+    getNewImplementationAddress(networkName: string): string {
+        const deploymentsDir = path.join(__dirname, "..", "deployments");
+        const filePath = path.join(deploymentsDir, `${networkName}.json`);
+        const existingData = fs.existsSync(filePath) 
+            ? JSON.parse(fs.readFileSync(filePath, "utf8"))
+            : {};
+        return existingData.newImplementation.address || "";
+    }
 };
 
 // Task: Deploy upgradeable contract
-task("deploy:upgradeable", "Deploy Tenexium Protocol with upgradeable parameters")
+task("deploy:new_proxy", "Deploy Tenexium Protocol with upgradeable parameters")
     .addFlag("save", "Save deployment info to file")
     .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
-        console.log("🚀 Deploying Tenexium Protocol (Upgradeable)...");
+        console.log("�� Deploying Tenexium Protocol (Upgradeable)...");
         console.log("===============================================");
         
         const networkName = hre.network.name;
@@ -59,7 +75,7 @@ task("deploy:upgradeable", "Deploy Tenexium Protocol with upgradeable parameters
             console.log(`  Deployer balance: ${hre.ethers.formatEther(await deployer.provider.getBalance(deployer.address))} ETH`);
             
             // Deploy contract
-            console.log("\n📦 Deploying TenexiumProtocol...");
+            console.log("\n�� Deploying TenexiumProtocol...");
             const TenexiumProtocol = await hre.ethers.getContractFactory("TenexiumProtocol");
             
             const tenexiumProtocol = await hre.upgrades.deployProxy(
@@ -141,12 +157,184 @@ task("deploy:upgradeable", "Deploy Tenexium Protocol with upgradeable parameters
             }
             
             console.log("\n🎉 Deployment completed successfully!");
-            console.log("📋 Contract Addresses:");
+            console.log("�� Contract Addresses:");
             console.log("TenexiumProtocol (Proxy):", address);
             console.log("Implementation:", implementationAddress);
             
         } catch (error: any) {
             console.error("\n❌ Deployment failed:");
+            console.error(error.message);
+            process.exit(1);
+        }
+    });
+
+// Task: Deploy new implementation (equivalent to DeployImplementation.s.sol)
+task("deploy:implementation", "Deploy new implementation contract for upgrades")
+    .addFlag("save", "Save implementation address to deployment file")
+    .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+        console.log("🚀 Deploying New Implementation Contract...");
+        console.log("=============================================");
+        
+        const networkName = hre.network.name;
+        const shouldSave = taskArgs.save;
+        
+        console.log(`📊 Deployment Information:`);
+        console.log(`  Network: ${networkName}`);
+        
+        try {
+            // Get deployer
+            const [deployer] = await hre.ethers.getSigners();
+            
+            console.log(`  Deployer: ${deployer.address}`);
+            console.log(`  Deployer balance: ${hre.ethers.formatEther(await deployer.provider.getBalance(deployer.address))} ETH`);
+            
+            // Deploy new implementation
+            console.log("\n�� Deploying TenexiumProtocol Implementation...");
+            const TenexiumProtocol = await hre.ethers.getContractFactory("TenexiumProtocol");
+            
+            const newImplementation = await TenexiumProtocol.deploy();
+            await newImplementation.waitForDeployment();
+            
+            const implementationAddress = await newImplementation.getAddress();
+            console.log(`  ✅ New implementation deployed at: ${implementationAddress}`);
+            
+            // Save implementation address if requested
+            if (shouldSave) {
+                const deploymentsDir = path.join(__dirname, "..", "deployments");
+                if (!fs.existsSync(deploymentsDir)) {
+                    fs.mkdirSync(deploymentsDir, { recursive: true });
+                }
+                const filePath = path.join(deploymentsDir, `${networkName}.json`);
+                const existingData = fs.existsSync(filePath) 
+                    ? JSON.parse(fs.readFileSync(filePath, "utf8"))
+                    : {};
+                
+                const updatedData = {
+                    ...existingData,
+                    lastUpdated: new Date().toISOString(),
+                    newImplementation: {
+                        address: implementationAddress,
+                        deployedAt: new Date().toISOString(),
+                        deployer: deployer.address
+                    }
+                };
+                fs.writeFileSync(filePath, JSON.stringify(updatedData, null, 2));
+                console.log(`  📁 Implementation address saved to ${filePath}`);
+            }
+            
+            console.log("\n🎉 Implementation deployment completed successfully!");
+            console.log("📋 Implementation Address:", implementationAddress);
+            console.log("\n💡 Next steps:");
+            console.log("  1. Verify the implementation contract");
+            console.log("  2. Use 'npx hardhat upgrade:proxy' to upgrade your proxy");
+            
+        } catch (error: any) {
+            console.error("\n❌ Implementation deployment failed:");
+            console.error(error.message);
+            process.exit(1);
+        }
+    });
+
+// Task: Upgrade contract (equivalent to Upgrade.s.sol)
+task("upgrade:proxy", "Upgrade proxy contract to new implementation")
+    .addOptionalParam("proxy", "Proxy contract address to upgrade")
+    .addOptionalParam("implementation", "New implementation contract address")
+    .addOptionalParam("data", "Initialization data for upgrade (hex string)", "", types.string)
+    .addFlag("save", "Save upgrade info to deployment file")
+    .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
+        console.log("�� Upgrading Contract...");
+        console.log("=======================");
+        
+        const networkName = hre.network.name;
+        const proxyAddress = taskArgs.proxy || utils.getProxyAddress(networkName);
+        const newImplementationAddress = taskArgs.implementation || utils.getNewImplementationAddress(networkName);
+        const initializationData = taskArgs.data;
+        const shouldSave = taskArgs.save;
+        
+        console.log(`📊 Upgrade Information:`);
+        console.log(`  Network: ${networkName}`);
+        console.log(`  Proxy Address: ${proxyAddress}`);
+        console.log(`  New Implementation: ${newImplementationAddress}`);
+        if (initializationData) {
+            console.log(`  Initialization Data: ${initializationData}`);
+        }
+        
+        try {
+            // Get deployer
+            const [deployer] = await hre.ethers.getSigners();
+            
+            console.log(`  Deployer: ${deployer.address}`);
+            console.log(`  Deployer balance: ${hre.ethers.formatEther(await deployer.provider.getBalance(deployer.address))} ETH`);
+            
+            // Get current implementation
+            const currentImplementation = await hre.upgrades.erc1967.getImplementationAddress(proxyAddress);
+            console.log(`  Current Implementation: ${currentImplementation}`);
+            
+            // Verify the new implementation is different
+            if (currentImplementation.toLowerCase() === newImplementationAddress.toLowerCase()) {
+                console.log("⚠️  Warning: New implementation address is the same as current implementation");
+            }
+            
+            // Perform upgrade
+            console.log("\n�� Performing upgrade...");
+            
+            // Get the proxy contract
+            const proxyContract = await hre.ethers.getContractAt("TenexiumProtocol", proxyAddress);
+            
+            // Prepare upgrade data
+            const upgradeData = initializationData ? initializationData : "0x";
+            
+            // Perform upgrade via upgradeToAndCall
+            const upgradeTx = await proxyContract.upgradeToAndCall(newImplementationAddress, upgradeData);
+            console.log(`  Transaction Hash: ${upgradeTx.hash}`);
+            
+            await upgradeTx.wait();
+            console.log("  ✅ Upgrade transaction confirmed!");
+            
+            // Verify upgrade
+            const updatedImplementation = await hre.upgrades.erc1967.getImplementationAddress(proxyAddress);
+            console.log(`  ✅ Verified new implementation: ${updatedImplementation}`);
+            
+            // Save upgrade info if requested
+            if (shouldSave) {
+                const deploymentsDir = path.join(__dirname, "..", "deployments");
+                if (!fs.existsSync(deploymentsDir)) {
+                    fs.mkdirSync(deploymentsDir, { recursive: true });
+                }
+                const filePath = path.join(deploymentsDir, `${networkName}.json`);
+                const existingData = fs.existsSync(filePath) 
+                    ? JSON.parse(fs.readFileSync(filePath, "utf8"))
+                    : {};
+                
+                const upgradeInfo = {
+                    previousImplementation: currentImplementation,
+                    newImplementation: newImplementationAddress,
+                    upgradeTxHash: upgradeTx.hash,
+                    upgradedAt: new Date().toISOString(),
+                    upgradedBy: deployer.address
+                };
+                
+                const updatedData = {
+                    ...existingData,
+                    lastUpdated: new Date().toISOString(),
+                    upgrades: {
+                        ...existingData.upgrades,
+                        [upgradeTx.hash]: upgradeInfo
+                    }
+                };
+                fs.writeFileSync(filePath, JSON.stringify(updatedData, null, 2));
+                console.log(`  �� Upgrade info saved to ${filePath}`);
+            }
+            
+            console.log("\n🎉 Contract upgrade completed successfully!");
+            console.log("📋 Upgrade Summary:");
+            console.log(`  Proxy: ${proxyAddress}`);
+            console.log(`  Previous Implementation: ${currentImplementation}`);
+            console.log(`  New Implementation: ${updatedImplementation}`);
+            console.log(`  Transaction Hash: ${upgradeTx.hash}`);
+            
+        } catch (error: any) {
+            console.error("\n❌ Contract upgrade failed:");
             console.error(error.message);
             process.exit(1);
         }
@@ -160,16 +348,25 @@ task("deploy:help", "Show deployment task help")
         console.log("");
         console.log("Available tasks:");
         console.log("");
-        console.log("  npx hardhat deploy:immutable [options]");
-        console.log("    Deploy immutable version of the contract");
+        console.log("  npx hardhat deploy:new [options]");
+        console.log("    Deploy new upgradeable version of the contract");
         console.log("");
-        console.log("  npx hardhat deploy:upgradeable [options]");
-        console.log("    Deploy upgradeable version of the contract");
+        console.log("  npx hardhat deploy:implementation [options]");
+        console.log("    Deploy new implementation contract for upgrades");
+        console.log("");
+        console.log("  npx hardhat upgrade:proxy [options]");
+        console.log("    Upgrade proxy contract to new implementation");
         console.log("");
         console.log("Common options:");
         console.log("  --save               Save deployment info to file");
         console.log("");
+        console.log("Upgrade options:");
+        console.log("  --proxy <address>    Proxy contract address to upgrade");
+        console.log("  --implementation <address>  New implementation address");
+        console.log("  --data <hex>         Initialization data (optional)");
+        console.log("");
         console.log("Examples:");
-        console.log("  npx hardhat deploy:immutable --save");
-        console.log("  npx hardhat deploy:upgradeable --save");
+        console.log("  npx hardhat deploy:new-proxy --save");
+        console.log("  npx hardhat deploy:implementation --save");
+        console.log("  npx hardhat upgrade:proxy --proxy 0x123... --implementation 0x456... --save");
     }); 

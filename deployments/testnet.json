@@ -7,5 +7,19 @@
     "implementation": "0x80c1AAC2A51dAf4e275a8cDeD0A21c57049fb02a",
     "address": "0x40325E3A28247cA79207c0C75a878444bF4f7991"
   },
-  "lastUpdated": "2025-09-05T15:34:15.018Z"
+  "lastUpdated": "2025-09-05T21:00:14.011Z",
+  "newImplementation": {
+    "address": "0xd5e2DBE574a235c15e415FA5be8b3E7Fc9c6a078",
+    "deployedAt": "2025-09-05T20:56:01.633Z",
+    "deployer": "0xD17863aa942F5e0C611ABE6E1Ba2256147E71e89"
+  },
+  "upgrades": {
+    "0x907956b27d05f4b4b5860436f93da73ad74ada41852f9a5e67fae4a2e171d4ca": {
+      "previousImplementation": "0x80c1AAC2A51dAf4e275a8cDeD0A21c57049fb02a",
+      "newImplementation": "0xd5e2DBE574a235c15e415FA5be8b3E7Fc9c6a078",
+      "upgradeTxHash": "0x907956b27d05f4b4b5860436f93da73ad74ada41852f9a5e67fae4a2e171d4ca",
+      "upgradedAt": "2025-09-05T21:00:14.011Z",
+      "upgradedBy": "0xD17863aa942F5e0C611ABE6E1Ba2256147E71e89"
+    }
+  }
 }
