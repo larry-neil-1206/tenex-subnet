@@ -1,18 +1,16 @@
 import { ethers } from "hardhat";
-import * as dotenv from "dotenv";
-
-dotenv.config();
+import utils from "./utils";
 
 async function main() {
-    // Connect to the Subtensor EVM testnet
-    const provider = new ethers.JsonRpcProvider("https://test.chain.opentensor.ai");
-    const signer = new ethers.Wallet(process.env.ETH_PRIVATE_KEY!, provider);
-    const TenexiumProtocolContractAddress = "0x40325E3A28247cA79207c0C75a878444bF4f7991";
-
-    const TenexiumProtocol = await ethers.getContractAt("TenexiumProtocol", TenexiumProtocolContractAddress, signer);
+    const { provider, signer, contract: TenexiumProtocol } = await utils.getTenexiumProtocolContract("testnet");
+    const TenexiumProtocolContractAddress = TenexiumProtocol.target;
     
     console.log("🔍 Testing TenexiumProtocol Getters on Testnet");
     console.log("=" .repeat(60));
+    console.log("TenexiumProtocolContractAddress:", TenexiumProtocolContractAddress);
+    console.log("RPC URL:", utils.getRpcUrl("testnet"));
+    console.log("Signer:", signer.address);
+    console.log("Contract Balance:", ethers.formatEther(await provider.getBalance(TenexiumProtocolContractAddress)), "TAO");
     
     try {
         // ==================== CONSTANTS ====================
@@ -205,6 +203,17 @@ async function main() {
         console.log("Liquidity Circuit Breaker:", liquidityCircuitBreaker);
         console.log("Paused:", paused);
 
+        // ==================== FUNCTION PERMISSIONS ====================
+        console.log("\n🔒 FUNCTION PERMISSIONS:");
+        console.log("-".repeat(40));
+        
+        const openPositionPermission = await TenexiumProtocol.functionPermissions(0);
+        const closePositionPermission = await TenexiumProtocol.functionPermissions(1);
+        const addCollateralPermission = await TenexiumProtocol.functionPermissions(2);
+        console.log("Open Position Permission:", openPositionPermission);
+        console.log("Close Position Permission:", closePositionPermission);
+        console.log("Add Collateral Permission:", addCollateralPermission);
+
         // ==================== PROTOCOL STATE ====================
         console.log("\n📈 PROTOCOL STATE:");
         console.log("-".repeat(40));
@@ -282,7 +291,6 @@ async function main() {
         console.log("  - Total Trades Count:", protocolStats.totalTradesCount.toString());
         console.log("  - Protocol Fees Amount:", ethers.formatEther(protocolStats.protocolFeesAmount), "TAO");
         console.log("  - Total LP Stakes Amount:", ethers.formatEther(protocolStats.totalLpStakesAmount), "TAO");
-        console.log("  - Active Pairs Count:", protocolStats.activePairsCount.toString());
 
         // Get user stats for the signer
         const userStats = await TenexiumProtocol.getUserStats(signer.address);
@@ -293,7 +301,7 @@ async function main() {
         console.log("  - Is Liquidity Provider:", userStats.isLiquidityProvider);
 
         // Get user position (should be empty for new user)
-        const userPosition = await TenexiumProtocol.getUserPosition(signer.address, tenexNetuid);
+        const userPosition = await TenexiumProtocol.positions(signer.address, tenexNetuid);
         console.log("User Position for netuid " + tenexNetuid.toString() + ":");
         console.log("  - Collateral:", ethers.formatEther(userPosition.collateral), "TAO");
         console.log("  - Borrowed:", ethers.formatEther(userPosition.borrowed), "TAO");

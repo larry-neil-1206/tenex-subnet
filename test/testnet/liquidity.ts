@@ -1,18 +1,17 @@
 import { ethers } from "hardhat";
-import * as dotenv from "dotenv";
-
-dotenv.config();
+import utils from "./utils";
 
 async function main() {
     // Connect to the Subtensor EVM testnet
-    const provider = new ethers.JsonRpcProvider("https://test.chain.opentensor.ai");
-    const signer = new ethers.Wallet(process.env.ETH_PRIVATE_KEY!, provider);
-    const TenexiumProtocolContractAddress = "0x40325E3A28247cA79207c0C75a878444bF4f7991";
-
-    const TenexiumProtocol = await ethers.getContractAt("TenexiumProtocol", TenexiumProtocolContractAddress, signer);
+    const { provider, signer, contract: TenexiumProtocol } = await utils.getTenexiumProtocolContract("testnet");
+    const TenexiumProtocolContractAddress = TenexiumProtocol.target;
 
     console.log("🔍 Testing TenexiumProtocol Liquidity on Testnet");
     console.log("=" .repeat(60));
+    console.log("TenexiumProtocolContractAddress:", TenexiumProtocolContractAddress);
+    console.log("RPC URL:", utils.getRpcUrl("testnet"));
+    console.log("Signer:", signer.address);
+    console.log("Contract Balance:", ethers.formatEther(await provider.getBalance(TenexiumProtocolContractAddress)), "TAO");
     
     const userAddress = await signer.getAddress();
     console.log(`👤 User Address: ${userAddress}`);
@@ -27,12 +26,12 @@ async function main() {
     
     // Get initial user state
     const initialUserStats = await TenexiumProtocol.getUserStats(userAddress);
-    const initialLpInfo = await TenexiumProtocol.getLpInfo(userAddress);
+    const initialLpInfo = await TenexiumProtocol.liquidityProviders(userAddress);
     console.log(`\n�� Initial User State:`);
     console.log(`   Is Liquidity Provider: ${initialUserStats.isLiquidityProvider}`);
     console.log(`   LP Stake: ${ethers.formatEther(initialLpInfo.stake)} TAO`);
     console.log(`   LP Shares: ${ethers.formatEther(initialLpInfo.shares)}`);
-    console.log(`   Share Percentage: ${(Number(initialLpInfo.sharePercentage) / 1e18 * 100).toFixed(4)}%`);
+    console.log(`   Share Percentage: ${(Number(initialLpInfo.stake) / Number(initialStats.totalLpStakesAmount) * 100).toFixed(4)}%`);
     
     // Store original stake amount
     const originalStake = initialLpInfo.stake;
@@ -64,7 +63,7 @@ async function main() {
         
         // Check state after adding
         const afterAddStats = await TenexiumProtocol.getProtocolStats();
-        const afterAddLpInfo = await TenexiumProtocol.getLpInfo(userAddress);
+        const afterAddLpInfo = await TenexiumProtocol.liquidityProviders(userAddress);
         console.log(`   New Total LP Stakes: ${ethers.formatEther(afterAddStats.totalLpStakesAmount)} TAO`);
         console.log(`   New LP Stake: ${ethers.formatEther(afterAddLpInfo.stake)} TAO`);
         console.log(`   New LP Shares: ${ethers.formatEther(afterAddLpInfo.shares)}`);
@@ -82,7 +81,7 @@ async function main() {
         
         // Check final state
         const finalStats = await TenexiumProtocol.getProtocolStats();
-        const finalLpInfo = await TenexiumProtocol.getLpInfo(userAddress);
+        const finalLpInfo = await TenexiumProtocol.liquidityProviders(userAddress);
         console.log(`\n📊 Final Protocol State:`);
         console.log(`   Total LP Stakes: ${ethers.formatEther(finalStats.totalLpStakesAmount)} TAO`);
         console.log(`   Total Borrowed: ${ethers.formatEther(finalStats.totalBorrowedAmount)} TAO`);
@@ -93,7 +92,7 @@ async function main() {
         console.log(`\n�� Final User State:`);
         console.log(`   LP Stake: ${ethers.formatEther(finalLpInfo.stake)} TAO`);
         console.log(`   LP Shares: ${ethers.formatEther(finalLpInfo.shares)}`);
-        console.log(`   Share Percentage: ${(Number(finalLpInfo.sharePercentage) / 1e18 * 100).toFixed(4)}%`);
+        console.log(`   Share Percentage: ${(Number(finalLpInfo.stake) / Number(finalStats.totalLpStakesAmount) * 100).toFixed(4)}%`);
         
         // Verify original stake is preserved
         const stakeDifference = finalLpInfo.stake - originalStake;
@@ -102,7 +101,7 @@ async function main() {
         console.log(`   Final Stake: ${ethers.formatEther(finalLpInfo.stake)} TAO`);
         console.log(`   Difference: ${ethers.formatEther(stakeDifference)} TAO`);
         
-        if (stakeDifference === 0.0) {
+        if (stakeDifference === BigInt(0)) {
             console.log("   ✅ Original stake amount preserved perfectly!");
         } else {
             console.log(`   ⚠️  Small difference detected: ${ethers.formatEther(stakeDifference)} TAO`);
@@ -111,9 +110,10 @@ async function main() {
         
         // Additional liquidity information
         console.log(`\n📈 Additional Liquidity Information:`);
-        const liquidityStats = await TenexiumProtocol.getLiquidityStats();
-        console.log(`   Total LP Fees: ${ethers.formatEther(liquidityStats.totalFees)} TAO`);
-        console.log(`   Total LP Stakes: ${ethers.formatEther(liquidityStats.totalStakes)} TAO`);
+        const liquidityStats = await TenexiumProtocol.totalLpFees();
+        console.log(`   Total LP Fees: ${ethers.formatEther(liquidityStats)} TAO`);
+        const liquidityStats2 = await TenexiumProtocol.totalLpStakes();
+        console.log(`   Total LP Stakes: ${ethers.formatEther(liquidityStats2)} TAO`);
         
         // Calculate LP value
         const lpValue = await TenexiumProtocol.calculateLpValue(userAddress);
@@ -128,7 +128,7 @@ async function main() {
         // Try to get current state even if there was an error
         try {
             const errorStats = await TenexiumProtocol.getProtocolStats();
-            const errorLpInfo = await TenexiumProtocol.getLpInfo(userAddress);
+            const errorLpInfo = await TenexiumProtocol.liquidityProviders(userAddress);
             console.log("\n📊 State after error:");
             console.log(`   Total LP Stakes: ${ethers.formatEther(errorStats.totalLpStakesAmount)} TAO`);
             console.log(`   LP Stake: ${ethers.formatEther(errorLpInfo.stake)} TAO`);
