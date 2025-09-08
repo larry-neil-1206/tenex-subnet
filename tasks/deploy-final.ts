@@ -114,7 +114,8 @@ task("deploy:new_proxy", "Deploy Tenexium Protocol with upgradeable parameters")
                     deployConfig.tierThresholds,
                     deployConfig.tierFeeDiscounts,
                     deployConfig.tierMaxLeverages,
-                    deployConfig.protocolValidatorHotkey
+                    deployConfig.protocolValidatorHotkey,
+                    deployConfig.functionPermissions
                 ],
                 {
                     initializer: "initialize",
@@ -318,7 +319,6 @@ task("upgrade:proxy", "Upgrade proxy contract to new implementation")
                     ...existingData,
                     lastUpdated: new Date().toISOString(),
                     upgrades: {
-                        ...existingData.upgrades,
                         [upgradeTx.hash]: upgradeInfo
                     }
                 };

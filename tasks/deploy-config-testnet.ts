@@ -43,6 +43,9 @@ export interface DeployConfig {
 
     // Governed protocol validator hotkey (bytes32)
     protocolValidatorHotkey: string;
+
+    // Function permissions (default)
+    functionPermissions: boolean[];
 }
 
 const deployConfig: DeployConfig = {
@@ -114,7 +117,10 @@ const deployConfig: DeployConfig = {
     ],
 
     // Governed protocol validator hotkey (bytes32)
-    protocolValidatorHotkey: "0x4492d90ca4f56368e7a06ceeaea3859d312f12280df357d790637674b928df67"
+    protocolValidatorHotkey: "0x4492d90ca4f56368e7a06ceeaea3859d312f12280df357d790637674b928df67",
+
+    // Function permissions (default)
+    functionPermissions: [false, false, false]
 };
 
 export default deployConfig; 
