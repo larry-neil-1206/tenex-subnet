@@ -155,9 +155,6 @@ contract TenexiumStorage {
     // Liquidity providers
     mapping(address => LiquidityProvider) public liquidityProviders;
 
-    // Liquidation requests
-    mapping(bytes32 => LiquidationRequest) public liquidationRequests;
-
     // LP fee rewards
     mapping(address => uint256) public lpFeeRewards;
 
@@ -218,18 +215,6 @@ contract TenexiumStorage {
         uint256 maxSlippage; // Max slippage tolerance
         string justificationUrl; // Evidence URL for liquidation justification
         bytes32 contentHash; // Content hash for verification
-    }
-
-    struct LiquidationRequest {
-        address user; // Position owner
-        uint16 alphaNetuid; // Alpha subnet ID
-        uint256 requestTime; // Block number when the request was created
-        uint256 deadline; // Block number after which the request expires
-        string justificationUrl; // Evidence URL for liquidation justification
-        bytes32 contentHash; // Content hash for verification
-        uint256 collateralToLiquidate; // Collateral amount intended to liquidate
-        uint256 alphaToLiquidate; // Alpha amount intended to liquidate
-        bool isProcessed; // Whether this request has been handled
     }
 
     struct VestingSchedule {

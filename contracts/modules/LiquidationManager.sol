@@ -219,15 +219,6 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
         totalValue = currentScore * 1e18;
     }
 
-    /**
-     * @notice Get liquidation request details
-     * @param requestId Request identifier
-     * @return request Liquidation request details
-     */
-    function getLiquidationRequest(bytes32 requestId) external view returns (LiquidationRequest memory request) {
-        return liquidationRequests[requestId];
-    }
-
     // ==================== INTERNAL HELPER FUNCTIONS ====================
 
     /**
