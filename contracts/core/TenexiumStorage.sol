@@ -208,14 +208,6 @@ contract TenexiumStorage {
         bool isActive; // LP status
     }
 
-    struct LiquidateParams {
-        address user; // Position owner
-        uint16 alphaNetuid; // Alpha subnet ID
-        uint256 maxSlippage; // Max slippage tolerance
-        string justificationUrl; // Evidence URL for liquidation justification
-        bytes32 contentHash; // Content hash for verification
-    }
-
     struct VestingSchedule {
         uint256 totalAmount; // Total alpha tokens vesting
         uint256 claimedAmount; // Amount already claimed
