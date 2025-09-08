@@ -115,7 +115,6 @@ contract TenexiumStorage {
     // Buyback system state
     uint256 public buybackPool; // Buyback pool balance
     uint256 public lastBuybackBlock; // Last buyback block
-    uint256 public totalBuybacksExecuted; // Total buybacks executed
     uint256 public totalTaoUsedForBuybacks; // Total TAO used for buybacks
     uint256 public totalAlphaBought; // Total Alpha tokens bought
     uint256 public accumulatedFees; // Accumulated fees
@@ -155,9 +154,6 @@ contract TenexiumStorage {
     // Liquidity providers
     mapping(address => LiquidityProvider) public liquidityProviders;
 
-    // Liquidation requests
-    mapping(bytes32 => LiquidationRequest) public liquidationRequests;
-
     // LP fee rewards
     mapping(address => uint256) public lpFeeRewards;
 
@@ -175,7 +171,6 @@ contract TenexiumStorage {
 
     // Alpha pairs
     mapping(uint16 => AlphaPair) public alphaPairs;
-    uint16[] public supportedAlphaPairs;
 
     // ==================== STRUCTS ====================
 
@@ -210,26 +205,6 @@ contract TenexiumStorage {
         uint256 shares; // LP shares
         uint256 rewardDebt; // Accumulator-based reward debt for LP fee claims
         bool isActive; // LP status
-    }
-
-    struct LiquidateParams {
-        address user; // Position owner
-        uint16 alphaNetuid; // Alpha subnet ID
-        uint256 maxSlippage; // Max slippage tolerance
-        string justificationUrl; // Evidence URL for liquidation justification
-        bytes32 contentHash; // Content hash for verification
-    }
-
-    struct LiquidationRequest {
-        address user; // Position owner
-        uint16 alphaNetuid; // Alpha subnet ID
-        uint256 requestTime; // Block number when the request was created
-        uint256 deadline; // Block number after which the request expires
-        string justificationUrl; // Evidence URL for liquidation justification
-        bytes32 contentHash; // Content hash for verification
-        uint256 collateralToLiquidate; // Collateral amount intended to liquidate
-        uint256 alphaToLiquidate; // Alpha amount intended to liquidate
-        bool isProcessed; // Whether this request has been handled
     }
 
     struct VestingSchedule {

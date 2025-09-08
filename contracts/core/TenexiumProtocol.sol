@@ -437,8 +437,6 @@ contract TenexiumProtocol is
         pair.isActive = true;
         pair.isPaused = false;
 
-        supportedAlphaPairs.push(alphaNetuid);
-
         emit AlphaPairAdded(alphaNetuid, maxLeverageForPair, liquidationThreshold);
     }
 
@@ -662,8 +660,7 @@ contract TenexiumProtocol is
             uint256 totalVolumeAmount,
             uint256 totalTradesCount,
             uint256 protocolFeesAmount,
-            uint256 totalLpStakesAmount,
-            uint256 activePairsCount
+            uint256 totalLpStakesAmount
         )
     {
         totalCollateralAmount = totalCollateral;
@@ -672,7 +669,6 @@ contract TenexiumProtocol is
         totalTradesCount = totalTrades;
         protocolFeesAmount = protocolFees;
         totalLpStakesAmount = totalLpStakes;
-        activePairsCount = supportedAlphaPairs.length;
     }
 
     /**

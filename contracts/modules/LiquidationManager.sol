@@ -164,38 +164,6 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
         return simulatedTaoValue.safeMul(PRECISION) / totalDebt;
     }
 
-    /**
-     * @notice Batch check multiple positions for liquidation opportunities
-     * @param users Array of user addresses
-     * @param alphaNetuids Array of Alpha subnet IDs
-     * @return liquidatablePositions Array of liquidatable position indices
-     */
-    function _batchCheckLiquidatable(address[] memory users, uint16[] memory alphaNetuids)
-        internal
-        view
-        returns (uint256[] memory liquidatablePositions)
-    {
-        if (users.length != alphaNetuids.length) revert TenexiumErrors.ArrayLengthMismatch();
-
-        uint256[] memory tempResults = new uint256[](users.length);
-        uint256 count = 0;
-
-        for (uint256 i = 0; i < users.length; i++) {
-            if (_isPositionLiquidatable(users[i], alphaNetuids[i])) {
-                tempResults[count] = i;
-                count++;
-            }
-        }
-
-        // Create result array with exact size
-        liquidatablePositions = new uint256[](count);
-        for (uint256 i = 0; i < count; i++) {
-            liquidatablePositions[i] = tempResults[i];
-        }
-
-        return liquidatablePositions;
-    }
-
     // ==================== VIEW FUNCTIONS ====================
 
     /**
@@ -217,15 +185,6 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
         // Simplified calculations
         totalLiquidations = currentScore;
         totalValue = currentScore * 1e18;
-    }
-
-    /**
-     * @notice Get liquidation request details
-     * @param requestId Request identifier
-     * @return request Liquidation request details
-     */
-    function getLiquidationRequest(bytes32 requestId) external view returns (LiquidationRequest memory request) {
-        return liquidationRequests[requestId];
     }
 
     // ==================== INTERNAL HELPER FUNCTIONS ====================
@@ -269,13 +228,5 @@ abstract contract LiquidationManager is TenexiumStorage, TenexiumEvents, Precomp
 
     function getPositionHealthRatio(address user, uint16 alphaNetuid) public view returns (uint256) {
         return _getPositionHealthRatio(user, alphaNetuid);
-    }
-
-    function batchCheckLiquidatable(address[] calldata users, uint16[] calldata alphaNetuids)
-        external
-        view
-        returns (uint256[] memory)
-    {
-        return _batchCheckLiquidatable(users, alphaNetuids);
     }
 }

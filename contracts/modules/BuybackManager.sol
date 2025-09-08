@@ -57,7 +57,6 @@ abstract contract BuybackManager is TenexiumStorage, TenexiumEvents, PrecompileA
 
         // Update accounting
         buybackPool -= buybackAmount;
-        totalBuybacksExecuted++;
         totalTaoUsedForBuybacks += buybackAmount;
         totalAlphaBought += actualAlphaReceived;
         lastBuybackBlock = block.number;
@@ -164,7 +163,6 @@ abstract contract BuybackManager is TenexiumStorage, TenexiumEvents, PrecompileA
 
     /**
      * @notice Get buyback statistics
-     * @return totalExecuted Total executions
      * @return totalTaoUsed Total TAO used for buybacks
      * @return totalAlphaBought_ Total Alpha bought
      * @return nextBuybackTime Block number for next eligible buyback
@@ -173,20 +171,9 @@ abstract contract BuybackManager is TenexiumStorage, TenexiumEvents, PrecompileA
     function getBuybackStats()
         external
         view
-        returns (
-            uint256 totalExecuted,
-            uint256 totalTaoUsed,
-            uint256 totalAlphaBought_,
-            uint256 nextBuybackTime,
-            bool canExecuteNow
-        )
+        returns (uint256 totalTaoUsed, uint256 totalAlphaBought_, uint256 nextBuybackTime, bool canExecuteNow)
     {
-        return (
-            totalBuybacksExecuted,
-            totalTaoUsedForBuybacks,
-            totalAlphaBought,
-            lastBuybackBlock + buybackIntervalBlocks,
-            _canExecuteBuyback()
-        );
+        return
+            (totalTaoUsedForBuybacks, totalAlphaBought, lastBuybackBlock + buybackIntervalBlocks, _canExecuteBuyback());
     }
 }
