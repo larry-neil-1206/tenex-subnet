@@ -171,18 +171,9 @@ abstract contract BuybackManager is TenexiumStorage, TenexiumEvents, PrecompileA
     function getBuybackStats()
         external
         view
-        returns (
-            uint256 totalTaoUsed,
-            uint256 totalAlphaBought_,
-            uint256 nextBuybackTime,
-            bool canExecuteNow
-        )
+        returns (uint256 totalTaoUsed, uint256 totalAlphaBought_, uint256 nextBuybackTime, bool canExecuteNow)
     {
-        return (
-            totalTaoUsedForBuybacks,
-            totalAlphaBought,
-            lastBuybackBlock + buybackIntervalBlocks,
-            _canExecuteBuyback()
-        );
+        return
+            (totalTaoUsedForBuybacks, totalAlphaBought, lastBuybackBlock + buybackIntervalBlocks, _canExecuteBuyback());
     }
 }
