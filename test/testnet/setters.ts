@@ -1,93 +1,6 @@
 import { ethers } from "hardhat";
-import * as dotenv from "dotenv";
-
-dotenv.config();
-
-// Interface for the TenexiumProtocol contract
-interface TenexiumProtocol {
-    // Risk parameters
-    updateRiskParameters(maxLeverage: bigint, liquidationThreshold: bigint): Promise<any>;
-    maxLeverage(): Promise<bigint>;
-    liquidationThreshold(): Promise<bigint>;
-
-    // Liquidity guardrails
-    updateLiquidityGuardrails(minLiquidityThreshold: bigint, maxUtilizationRate: bigint, liquidityBufferRatio: bigint): Promise<any>;
-    minLiquidityThreshold(): Promise<bigint>;
-    maxUtilizationRate(): Promise<bigint>;
-    liquidityBufferRatio(): Promise<bigint>;
-
-    // Action cooldowns
-    updateActionCooldowns(userCooldownBlocks: bigint, lpCooldownBlocks: bigint): Promise<any>;
-    userActionCooldownBlocks(): Promise<bigint>;
-    lpActionCooldownBlocks(): Promise<bigint>;
-
-    // Buyback parameters
-    updateBuybackParameters(buybackRate: bigint, buybackIntervalBlocks: bigint, buybackExecutionThreshold: bigint): Promise<any>;
-    buybackRate(): Promise<bigint>;
-    buybackIntervalBlocks(): Promise<bigint>;
-    buybackExecutionThreshold(): Promise<bigint>;
-
-    // Vesting parameters
-    updateVestingParameters(vestingDurationBlocks: bigint, cliffDurationBlocks: bigint): Promise<any>;
-    vestingDurationBlocks(): Promise<bigint>;
-    cliffDurationBlocks(): Promise<bigint>;
-
-    // Fee parameters
-    updateFeeParameters(tradingFeeRate: bigint, borrowingFeeRate: bigint, liquidationFeeRate: bigint): Promise<any>;
-    tradingFeeRate(): Promise<bigint>;
-    borrowingFeeRate(): Promise<bigint>;
-    liquidationFeeRate(): Promise<bigint>;
-
-    // Fee distributions
-    updateFeeDistributions(trading: [bigint, bigint, bigint], borrowing: [bigint, bigint, bigint], liquidation: [bigint, bigint, bigint]): Promise<any>;
-    tradingFeeLpShare(): Promise<bigint>;
-    tradingFeeLiquidatorShare(): Promise<bigint>;
-    tradingFeeProtocolShare(): Promise<bigint>;
-    borrowingFeeLpShare(): Promise<bigint>;
-    borrowingFeeLiquidatorShare(): Promise<bigint>;
-    borrowingFeeProtocolShare(): Promise<bigint>;
-    liquidationFeeLpShare(): Promise<bigint>;
-    liquidationFeeLiquidatorShare(): Promise<bigint>;
-    liquidationFeeProtocolShare(): Promise<bigint>;
-
-    // Tier parameters
-    updateTierParameters(tierThresholds: [bigint, bigint, bigint, bigint, bigint], tierFeeDiscounts: [bigint, bigint, bigint, bigint, bigint, bigint], tierMaxLeverages: [bigint, bigint, bigint, bigint, bigint, bigint]): Promise<any>;
-    tier1Threshold(): Promise<bigint>;
-    tier2Threshold(): Promise<bigint>;
-    tier3Threshold(): Promise<bigint>;
-    tier4Threshold(): Promise<bigint>;
-    tier5Threshold(): Promise<bigint>;
-    tier0FeeDiscount(): Promise<bigint>;
-    tier1FeeDiscount(): Promise<bigint>;
-    tier2FeeDiscount(): Promise<bigint>;
-    tier3FeeDiscount(): Promise<bigint>;
-    tier4FeeDiscount(): Promise<bigint>;
-    tier5FeeDiscount(): Promise<bigint>;
-    tier0MaxLeverage(): Promise<bigint>;
-    tier1MaxLeverage(): Promise<bigint>;
-    tier2MaxLeverage(): Promise<bigint>;
-    tier3MaxLeverage(): Promise<bigint>;
-    tier4MaxLeverage(): Promise<bigint>;
-    tier5MaxLeverage(): Promise<bigint>;
-
-    // Protocol addresses
-    updateProtocolValidatorHotkey(newHotkey: string): Promise<any>;
-    updateProtocolSs58Address(newSs58Address: string): Promise<any>;
-    updateTreasury(newTreasury: string): Promise<any>;
-    protocolValidatorHotkey(): Promise<string>;
-    protocolSs58Address(): Promise<string>;
-    treasury(): Promise<string>;
-
-    // Alpha pairs
-    addAlphaPair(alphaNetuid: number, maxLeverageForPair: bigint): Promise<any>;
-
-    // Emergency functions
-    resetLiquidityCircuitBreaker(liquidityCircuitBreaker: boolean): Promise<any>;
-    liquidityCircuitBreaker(): Promise<boolean>;
-
-    // Constants
-    PRECISION(): Promise<bigint>;
-}
+import utils from "./utils";
+import type { TenexiumProtocol } from "../../typechain/contracts/core/TenexiumProtocol";
 
 // Store original values for restoration
 interface OriginalValues {
@@ -155,18 +68,24 @@ interface OriginalValues {
 
     // Emergency state
     liquidityCircuitBreaker: boolean;
+
+    // Function permissions
+    functionPermissions0: boolean;
+    functionPermissions1: boolean;
+    functionPermissions2: boolean;
 }
 
 async function main() {
     // Connect to the Subtensor EVM testnet
-    const provider = new ethers.JsonRpcProvider("https://test.chain.opentensor.ai");
-    const signer = new ethers.Wallet(process.env.ETH_PRIVATE_KEY!, provider);
-    const TenexiumProtocolContractAddress = "0x40325E3A28247cA79207c0C75a878444bF4f7991";
-
-    const TenexiumProtocol = await ethers.getContractAt("TenexiumProtocol", TenexiumProtocolContractAddress, signer) as any as TenexiumProtocol;
+    const { provider, signer, contract: TenexiumProtocol } = await utils.getTenexiumProtocolContract("testnet");
+    const TenexiumProtocolContractAddress = TenexiumProtocol.target;
 
     console.log("🚀 Starting TenexiumProtocol Setter Function Tests");
     console.log("=" .repeat(60));
+    console.log("TenexiumProtocolContractAddress:", TenexiumProtocolContractAddress);
+    console.log("RPC URL:", utils.getRpcUrl("testnet"));
+    console.log("Signer:", signer.address);
+    console.log("Contract Balance:", ethers.formatEther(await provider.getBalance(TenexiumProtocolContractAddress)), "TAO");
 
     // Get original values for restoration
     const originalValues = await getOriginalValues(TenexiumProtocol);
@@ -184,6 +103,7 @@ async function main() {
         await testTierParameters(TenexiumProtocol, originalValues);
         await testProtocolAddresses(TenexiumProtocol, originalValues);
         await testEmergencyFunctions(TenexiumProtocol, originalValues);
+        await testFunctionPermissions(TenexiumProtocol, originalValues);
 
         console.log("\n✅ All setter function tests completed successfully!");
         console.log("🔄 All original states have been restored");
@@ -197,8 +117,6 @@ async function main() {
 }
 
 async function getOriginalValues(contract: TenexiumProtocol): Promise<OriginalValues> {
-    const precision = await contract.PRECISION();
-    
     return {
         // Risk parameters
         maxLeverage: await contract.maxLeverage(),
@@ -264,6 +182,11 @@ async function getOriginalValues(contract: TenexiumProtocol): Promise<OriginalVa
 
         // Emergency state
         liquidityCircuitBreaker: await contract.liquidityCircuitBreaker(),
+
+        // Function permissions
+        functionPermissions0: await contract.functionPermissions(0),
+        functionPermissions1: await contract.functionPermissions(1),
+        functionPermissions2: await contract.functionPermissions(2),
     };
 }
 
@@ -322,6 +245,11 @@ async function restoreOriginalState(contract: TenexiumProtocol, original: Origin
         if (original.liquidityCircuitBreaker !== await contract.liquidityCircuitBreaker()) {
             await contract.resetLiquidityCircuitBreaker(original.liquidityCircuitBreaker);
         }
+        
+        // Restore function permissions
+        await contract.updateFunctionPermissions(
+            [original.functionPermissions0, original.functionPermissions1, original.functionPermissions2]
+        );
         
         console.log("✅ Original state restored successfully");
     } catch (error) {
@@ -693,6 +621,33 @@ async function testEmergencyFunctions(contract: TenexiumProtocol, original: Orig
     await contract.resetLiquidityCircuitBreaker(original.liquidityCircuitBreaker);
     console.log("🔄 Liquidity circuit breaker restored to original value");
     console.log("🔄 Emergency functions test completed");
+}
+
+async function testFunctionPermissions(contract: TenexiumProtocol, original: OriginalValues) {
+    console.log("\n🧪 Testing function permissions...");
+    
+    // Test function permission updates
+    const newPermissions = [true, true, true];
+    const tx1 = await contract.updateFunctionPermissions(
+        [newPermissions[0], newPermissions[1], newPermissions[2]]
+    );
+    await tx1.wait();
+
+    const updatedPermissions0 = await contract.functionPermissions(0);
+    const updatedPermissions1 = await contract.functionPermissions(1);
+    const updatedPermissions2 = await contract.functionPermissions(2);
+    if (updatedPermissions0 !== newPermissions[0] ||
+        updatedPermissions1 !== newPermissions[1] ||
+        updatedPermissions2 !== newPermissions[2]) {
+        throw new Error("Function permission update failed");
+    }
+    console.log("✅ updateFunctionPermissions test passed");
+
+    // Restore original function permissions
+    await contract.updateFunctionPermissions(
+        [original.functionPermissions0, original.functionPermissions1, original.functionPermissions2]
+    );
+    console.log("🔄 Function permissions restored to original values");
 }
 
 main().catch((error) => {
