@@ -499,7 +499,7 @@ contract TenexiumProtocol is
     /**
      * @notice Add liquidity to the protocol
      */
-    function addLiquidity() external payable nonReentrant lpRateLimit {
+    function addLiquidity() external payable nonReentrant {
         if (msg.value == 0) revert TenexiumErrors.NoLiquidityProvided();
         _addLiquidity();
         _updateLiquidityCircuitBreaker();
@@ -687,16 +687,6 @@ contract TenexiumProtocol is
         totalBorrowedUser = userTotalBorrowed[user];
         totalVolumeUser = userTotalVolume[user];
         isLiquidityProvider = liquidityProviders[user].isActive;
-    }
-
-    /**
-     * @notice Get user's position information
-     * @param user User address
-     * @param alphaNetuid Alpha subnet ID
-     * @return position Position details
-     */
-    function getUserPosition(address user, uint16 alphaNetuid) external view returns (Position memory position) {
-        return positions[user][alphaNetuid];
     }
 
     // ==================== DELEGATE FUNCTIONS ====================

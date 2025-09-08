@@ -163,61 +163,6 @@ abstract contract LiquidityManager is TenexiumStorage, TenexiumEvents {
         return baseValue;
     }
 
-    // ==================== VIEW FUNCTIONS ====================
-
-    /**
-     * @notice Get LP information
-     * @param lpAddress LP address
-     * @return stake Current stake amount
-     * @return shares Current share amount
-     * @return sharePercentage Percentage of total pool
-     */
-    function getLpInfo(address lpAddress)
-        external
-        view
-        returns (uint256 stake, uint256 shares, uint256 sharePercentage)
-    {
-        LiquidityProvider storage lp = liquidityProviders[lpAddress];
-
-        stake = lp.stake;
-        shares = lp.shares;
-
-        if (totalLpStakes > 0) {
-            sharePercentage = lp.stake.safeMul(PRECISION) / totalLpStakes;
-        }
-    }
-
-    /**
-     * @notice Get overall liquidity statistics
-     * @return totalFees Total fees earned by LPs
-     * @return totalStakes Total LP stakes
-     */
-    function getLiquidityStats() external view returns (uint256 totalFees, uint256 totalStakes) {
-        totalFees = totalLpFees;
-        totalStakes = totalLpStakes;
-    }
-
-    /**
-     * @notice Get utilization statistics for an alpha pair
-     * @param alphaNetuid Alpha subnet ID
-     * @return utilizationRate Current utilization rate
-     * @return borrowingRate Current borrowing rate
-     * @return totalCollateralPair Total collateral in pair
-     * @return totalBorrowed Total borrowed amount
-     */
-    function getUtilizationStats(uint16 alphaNetuid)
-        external
-        view
-        returns (uint256 utilizationRate, uint256 borrowingRate, uint256 totalCollateralPair, uint256 totalBorrowed)
-    {
-        AlphaPair storage pair = alphaPairs[alphaNetuid];
-
-        utilizationRate = pair.utilizationRate;
-        borrowingRate = pair.borrowingRate;
-        totalCollateralPair = pair.totalCollateral;
-        totalBorrowed = pair.totalBorrowed;
-    }
-
     // ==================== INTERNAL FUNCTIONS ====================
 
     /**
