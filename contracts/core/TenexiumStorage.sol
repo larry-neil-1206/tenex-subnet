@@ -172,7 +172,6 @@ contract TenexiumStorage {
 
     // Alpha pairs
     mapping(uint16 => AlphaPair) public alphaPairs;
-    uint16[] public supportedAlphaPairs;
 
     // ==================== STRUCTS ====================
 
