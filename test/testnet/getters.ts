@@ -227,14 +227,12 @@ async function main() {
         
         const buybackPool = await TenexiumProtocol.buybackPool();
         const lastBuybackBlock = await TenexiumProtocol.lastBuybackBlock();
-        const totalBuybacksExecuted = await TenexiumProtocol.totalBuybacksExecuted();
         const totalTaoUsedForBuybacks = await TenexiumProtocol.totalTaoUsedForBuybacks();
         const totalAlphaBought = await TenexiumProtocol.totalAlphaBought();
         const accumulatedFees = await TenexiumProtocol.accumulatedFees();
         
         console.log("Buyback Pool:", ethers.formatEther(buybackPool), "TAO");
         console.log("Last Buyback Block:", lastBuybackBlock.toString());
-        console.log("Total Buybacks Executed:", totalBuybacksExecuted.toString());
         console.log("Total TAO Used for Buybacks:", ethers.formatEther(totalTaoUsedForBuybacks), "TAO");
         console.log("Total Alpha Bought:", ethers.formatEther(totalAlphaBought), "Alpha");
         console.log("Accumulated Fees:", ethers.formatEther(accumulatedFees), "TAO");
