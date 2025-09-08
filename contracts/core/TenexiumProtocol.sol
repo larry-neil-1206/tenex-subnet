@@ -689,16 +689,6 @@ contract TenexiumProtocol is
         isLiquidityProvider = liquidityProviders[user].isActive;
     }
 
-    /**
-     * @notice Get user's position information
-     * @param user User address
-     * @param alphaNetuid Alpha subnet ID
-     * @return position Position details
-     */
-    function getUserPosition(address user, uint16 alphaNetuid) external view returns (Position memory position) {
-        return positions[user][alphaNetuid];
-    }
-    
     // ==================== DELEGATE FUNCTIONS ====================
 
     /**
