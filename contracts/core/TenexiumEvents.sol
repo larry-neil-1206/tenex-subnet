@@ -42,7 +42,7 @@ contract TenexiumEvents {
 
     event UtilizationRateUpdated(uint16 indexed alphaNetuid, uint256 utilizationRate, uint256 borrowingRate);
 
-    event AlphaPairAdded(uint16 indexed netuid, uint256 maxLeverage, uint256 liquidationThreshold);
+    event AlphaPairAdded(uint16 indexed netuid, uint256 maxLeverage);
 
     // ==================== LIQUIDITY PROVIDER EVENTS ====================
 
