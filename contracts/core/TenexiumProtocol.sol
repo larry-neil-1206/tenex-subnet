@@ -432,12 +432,10 @@ contract TenexiumProtocol is
         AlphaPair storage pair = alphaPairs[alphaNetuid];
         pair.netuid = alphaNetuid;
         pair.maxLeverage = maxLeverageForPair;
-        pair.liquidationThreshold = liquidationThreshold;
         pair.borrowingRate = borrowingFeeRate;
         pair.isActive = true;
-        pair.isPaused = false;
 
-        emit AlphaPairAdded(alphaNetuid, maxLeverageForPair, liquidationThreshold);
+        emit AlphaPairAdded(alphaNetuid, maxLeverageForPair);
     }
 
     // ==================== EMERGENCY FUNCTIONS ====================

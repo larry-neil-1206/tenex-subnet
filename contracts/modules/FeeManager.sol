@@ -177,27 +177,4 @@ abstract contract FeeManager is TenexiumStorage, TenexiumEvents {
 
         return discountedFee;
     }
-
-    /**
-     * @notice Calculate borrowing fees accrued over time
-     * @param user User address
-     * @param alphaNetuid Alpha subnet ID
-     * @return accruedFees Total accrued fees
-     */
-    function _calculateBorrowFeesSinceLastUpdate(address user, uint16 alphaNetuid)
-        internal
-        view
-        returns (uint256 accruedFees)
-    {
-        Position storage position = positions[user][alphaNetuid];
-        if (!position.isActive) return 0;
-
-        uint256 blocksElapsed = block.number - position.lastUpdateBlock;
-        AlphaPair storage pair = alphaPairs[alphaNetuid];
-        uint256 utilization =
-            pair.totalCollateral == 0 ? 0 : pair.totalBorrowed.safeMul(PRECISION) / pair.totalCollateral;
-        uint256 ratePer360 = RiskCalculator.dynamicBorrowRatePer360(utilization);
-
-        return position.borrowed.safeMul(ratePer360).safeMul(blocksElapsed) / (PRECISION * 360);
-    }
 }
