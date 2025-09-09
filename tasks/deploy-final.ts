@@ -19,12 +19,12 @@ interface DeploymentResult {
 
 // Utility functions
 const utils = {
-    saveDeployment(networkName: string, deploymentInfo: DeploymentResult): void {
+    saveDeployment(networkName: string, contractName:string, deploymentInfo: DeploymentResult): void {
         const deploymentsDir = path.join(__dirname, "..", "deployments");
         if (!fs.existsSync(deploymentsDir)) {
             fs.mkdirSync(deploymentsDir, { recursive: true });
         }
-        const filePath = path.join(deploymentsDir, `${networkName}.json`);
+        const filePath = path.join(deploymentsDir, `${networkName}-${contractName}.json`);
         const existingData = fs.existsSync(filePath) 
             ? JSON.parse(fs.readFileSync(filePath, "utf8"))
             : {};
@@ -36,17 +36,17 @@ const utils = {
         fs.writeFileSync(filePath, JSON.stringify(updatedData, null, 2));
         console.log(`  📁 Deployment info saved to ${filePath}`);
     },
-    getProxyAddress(networkName: string): string {
+    getProxyAddress(networkName: string, contractName:string): string {
         const deploymentsDir = path.join(__dirname, "..", "deployments");
-        const filePath = path.join(deploymentsDir, `${networkName}.json`);
+        const filePath = path.join(deploymentsDir, `${networkName}-${contractName}.json`);
         const existingData = fs.existsSync(filePath) 
             ? JSON.parse(fs.readFileSync(filePath, "utf8"))
             : {};
         return existingData.tenexiumProtocol.proxy || "";
     },
-    getNewImplementationAddress(networkName: string): string {
+    getNewImplementationAddress(networkName: string, contractName:string): string {
         const deploymentsDir = path.join(__dirname, "..", "deployments");
-        const filePath = path.join(deploymentsDir, `${networkName}.json`);
+        const filePath = path.join(deploymentsDir, `${networkName}-${contractName}.json`);
         const existingData = fs.existsSync(filePath) 
             ? JSON.parse(fs.readFileSync(filePath, "utf8"))
             : {};
@@ -154,7 +154,7 @@ task("deploy:new_proxy", "Deploy Tenexium Protocol with upgradeable parameters")
                         address: address
                     }
                 };
-                utils.saveDeployment(networkName, deploymentInfo);
+                utils.saveDeployment(networkName, "tenexiumProtocol", deploymentInfo);
             }
             
             console.log("\n🎉 Deployment completed successfully!");
@@ -205,7 +205,7 @@ task("deploy:implementation", "Deploy new implementation contract for upgrades")
                 if (!fs.existsSync(deploymentsDir)) {
                     fs.mkdirSync(deploymentsDir, { recursive: true });
                 }
-                const filePath = path.join(deploymentsDir, `${networkName}.json`);
+                const filePath = path.join(deploymentsDir, `${networkName}-${"tenexiumProtocol"}.json`);
                 const existingData = fs.existsSync(filePath) 
                     ? JSON.parse(fs.readFileSync(filePath, "utf8"))
                     : {};
@@ -247,8 +247,8 @@ task("upgrade:proxy", "Upgrade proxy contract to new implementation")
         console.log("=======================");
         
         const networkName = hre.network.name;
-        const proxyAddress = taskArgs.proxy || utils.getProxyAddress(networkName);
-        const newImplementationAddress = taskArgs.implementation || utils.getNewImplementationAddress(networkName);
+        const proxyAddress = taskArgs.proxy || utils.getProxyAddress(networkName, "tenexiumProtocol");
+        const newImplementationAddress = taskArgs.implementation || utils.getNewImplementationAddress(networkName, "tenexiumProtocol");
         const initializationData = taskArgs.data;
         const shouldSave = taskArgs.save;
         
@@ -302,7 +302,7 @@ task("upgrade:proxy", "Upgrade proxy contract to new implementation")
                 if (!fs.existsSync(deploymentsDir)) {
                     fs.mkdirSync(deploymentsDir, { recursive: true });
                 }
-                const filePath = path.join(deploymentsDir, `${networkName}.json`);
+                const filePath = path.join(deploymentsDir, `${networkName}-${"tenexiumProtocol"}.json`);
                 const existingData = fs.existsSync(filePath) 
                     ? JSON.parse(fs.readFileSync(filePath, "utf8"))
                     : {};
@@ -343,11 +343,13 @@ task("upgrade:proxy", "Upgrade proxy contract to new implementation")
 
 // Task: Deploy subnet manager
 task("deploy:subnet-manager:new-proxy", "Deploy subnet manager contract")
+    .addFlag("save", "Save deployment info to file")
     .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
         console.log("🚀 Deploying Subnet Manager Contract...");
         console.log("=============================================");
         
         const networkName = hre.network.name;
+        const shouldSave = taskArgs.save;
 
         try {
             // Get deployer
@@ -359,7 +361,7 @@ task("deploy:subnet-manager:new-proxy", "Deploy subnet manager contract")
             // Deploy subnet manager
             console.log("\n�� Deploying Subnet Manager...");
             const SubnetManager = await hre.ethers.getContractFactory("SubnetManager");
-            const TenexiumContractAddress = utils.getProxyAddress(networkName);
+            const TenexiumContractAddress = utils.getProxyAddress(networkName, "tenexiumProtocol");
             const subnetManager = await hre.upgrades.deployProxy(
                 SubnetManager,
                 [
@@ -381,6 +383,21 @@ task("deploy:subnet-manager:new-proxy", "Deploy subnet manager contract")
             // Get implementation address
             const implementationAddress = await hre.upgrades.erc1967.getImplementationAddress(address);
             console.log(`  📋 Implementation address: ${implementationAddress}`);
+
+            // Save deployment info if requested
+            if (shouldSave) {
+                const deploymentInfo: DeploymentResult = {
+                    network: networkName,
+                    deployer: deployer.address,
+                    timestamp: new Date().toISOString(),
+                    tenexiumProtocol: {
+                        proxy: address,
+                        implementation: implementationAddress,
+                        address: address
+                    }
+                };
+                utils.saveDeployment(networkName, "subnetManager", deploymentInfo);
+            }
         } catch (error: any) {
             console.error("\n❌ Subnet manager deployment failed:");
             console.error(error.message);
@@ -390,12 +407,13 @@ task("deploy:subnet-manager:new-proxy", "Deploy subnet manager contract")
 
 // Task: Deploy subnet manager new implementation
 task("deploy:subnet-manager:implementation", "Deploy subnet manager new implementation")
+    .addFlag("save", "Save deployment info to file")
     .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
         console.log("🚀 Deploying Subnet Manager New Implementation Contract...");
         console.log("=============================================");
 
         const networkName = hre.network.name;
-
+        const shouldSave = taskArgs.save;
         try {
             // Get deployer
             const [deployer] = await hre.ethers.getSigners();
@@ -409,6 +427,31 @@ task("deploy:subnet-manager:implementation", "Deploy subnet manager new implemen
             const subnetManager = await SubnetManager.deploy();
             await subnetManager.waitForDeployment();
             const implementationAddress = await subnetManager.getAddress();
+
+            // Save implementation address if requested
+            if (shouldSave) {
+                const deploymentsDir = path.join(__dirname, "..", "deployments");
+                if (!fs.existsSync(deploymentsDir)) {
+                    fs.mkdirSync(deploymentsDir, { recursive: true });
+                }
+                const filePath = path.join(deploymentsDir, `${networkName}-${"subnetManager"}.json`);
+                const existingData = fs.existsSync(filePath) 
+                    ? JSON.parse(fs.readFileSync(filePath, "utf8"))
+                    : {};
+                
+                const updatedData = {
+                    ...existingData,
+                    lastUpdated: new Date().toISOString(),
+                    newImplementation: {
+                        address: implementationAddress,
+                        deployedAt: new Date().toISOString(),
+                        deployer: deployer.address
+                    }
+                };
+                fs.writeFileSync(filePath, JSON.stringify(updatedData, null, 2));
+                console.log(`  📁 Implementation address saved to ${filePath}`);
+            }
+
             console.log("\n🎉 Implementation deployment completed successfully!");
             console.log(`  📋 Implementation address: ${implementationAddress}`);
             console.log("\n💡 Next steps:");
@@ -423,14 +466,15 @@ task("deploy:subnet-manager:implementation", "Deploy subnet manager new implemen
 
 // Task: Upgrade subnet manager
 task("upgrade:subnet-manager:proxy", "Upgrade subnet manager proxy to new implementation")
+    .addFlag("save", "Save upgrade info to deployment file")
     .setAction(async (taskArgs, hre: HardhatRuntimeEnvironment) => {
         console.log("🚀 Upgrading Subnet Manager Contract...");
         console.log("=============================================");
 
         const networkName = hre.network.name;
-        const proxyAddress = "0xb08bFDD547413D42cC5e77a70c20cBDDc3554fAb";
-        const newImplementationAddress = "0x0f3b7f790617d964466eAA83A623879C592e3bB1"
-
+        const proxyAddress = utils.getProxyAddress(networkName, "subnetManager");
+        const newImplementationAddress = utils.getNewImplementationAddress(networkName, "subnetManager");
+        const shouldSave = taskArgs.save;
         try {
             // Get deployer
             const [deployer] = await hre.ethers.getSigners();
@@ -466,6 +510,36 @@ task("upgrade:subnet-manager:proxy", "Upgrade subnet manager proxy to new implem
             // Verify upgrade
             const updatedImplementation = await hre.upgrades.erc1967.getImplementationAddress(proxyAddress);
             console.log(`  ✅ Verified new implementation: ${updatedImplementation}`);
+            
+            // Save upgrade info if requested
+            if (shouldSave) {
+                const deploymentsDir = path.join(__dirname, "..", "deployments");
+                if (!fs.existsSync(deploymentsDir)) {
+                    fs.mkdirSync(deploymentsDir, { recursive: true });
+                }
+                const filePath = path.join(deploymentsDir, `${networkName}-${"subnetManager"}.json`);
+                const existingData = fs.existsSync(filePath) 
+                    ? JSON.parse(fs.readFileSync(filePath, "utf8"))
+                    : {};
+                
+                const upgradeInfo = {
+                    previousImplementation: currentImplementation,
+                    newImplementation: newImplementationAddress,
+                    upgradeTxHash: upgradeTx.hash,
+                    upgradedAt: new Date().toISOString(),
+                    upgradedBy: deployer.address
+                };
+                
+                const updatedData = {
+                    ...existingData,
+                    lastUpdated: new Date().toISOString(),
+                    upgrades: {
+                        [upgradeTx.hash]: upgradeInfo
+                    }
+                };
+                fs.writeFileSync(filePath, JSON.stringify(updatedData, null, 2));
+                console.log(`  �� Upgrade info saved to ${filePath}`);
+            }
             
             console.log("\n🎉 Contract upgrade completed successfully!");
             console.log("📋 Upgrade Summary:");
